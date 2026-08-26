@@ -1,0 +1,25 @@
+-  **2× passive kapazitive Touch-Stifte**
+  - Einer pro Display.
+  - Keine aktiven Surface-/Apple-Stifte.
+  - Idealerweise Mesh-, Gummi- oder Disc-Spitze.
+  - Das ist notwendig, damit Oma/Opa tatsächlich auf dem kapazitiven GT911-Touchscreen schreiben können. Das Display selbst unterstützt kapazitiven 5-Punkt-Touch.
+-  **2× 5-V-USB-Netzteile**
+  - Eines pro FamilyScreen.
+  - Eure zwei USB-Kabel sind bereits vorhanden.
+  - Falls ihr tatsächlich nur **einen** Screen bei den Großeltern baut und eure Seite ausschließlich über Surface/Web-App betreibt, reicht natürlich **1× Netzteil**.
+-  **Female-Female-Dupont-Kabel**
+  - In eurer Liste stehen F-M-Dupont-Kabel und normale Breadboard-Jumper.
+  - Falls die herausgeführten Pins am ESP32-L und eure Taster beide männliche Pins/Headers verwenden, braucht ihr Female-Female.
+  - Ich würde mindestens **10–20 Stück** mitnehmen. Damit seid ihr bei der Verbindung zwischen Entwicklungsboards, Adapter und externen Komponenten flexibel.
+-  **USB-Datenverbindung vom Laptop zum ESP32 sicherstellen**
+  - Eure 2 mitgelieferten USB-Kabel könnten bereits Datenkabel sein; dann fehlt hier nichts.
+  - Vor der Abfahrt unbedingt einmal ausprobieren, ob sich der ESP32 damit programmieren lässt.
+  - Falls nicht getestet: **1 zusätzliches garantiertes USB-Datenkabel** mitnehmen.
+-  **WLAN mit 2,4 GHz am Einsatzort**
+  - Kein zusätzliches Hardwareteil nötig.
+  - Aber essentiell für Nachrichten, Vercel-Backend und Wetterdaten.
+  - Der ESP32 übernimmt WLAN; ein separates WLAN-/Bluetooth-Modul ist nicht nötig.
+-  **Ein Gehäuse bzw. eine mechanische Halterung für das E-Paper**
+  - Nicht aus Elektronikgründen, aber für das fertige Projekt notwendig.
+  - Das nackte E-Paper darf nicht lose herumliegen oder belastet/gebogen werden.
+  - Es reicht eine einfache Rückplatte/Rahmenkonstruktion; ein spezielles Elektronikgehäuse ist nicht erforderlich.
