@@ -6,6 +6,7 @@ import {
   timestamp,
   bytea,
   index,
+  unique,
 } from "drizzle-orm/pg-core";
 
 //
@@ -32,29 +33,33 @@ export const users = pgTable("users", {
 // DEVICES
 //
 
-export const devices = pgTable("devices", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const devices = pgTable(
+  "devices",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
 
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, {
-      onDelete: "cascade",
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, {
+        onDelete: "cascade",
+      }),
+
+    name: text("name").notNull(),
+
+    tokenHash: text("token_hash").notNull().unique(),
+
+    revokedAt: timestamp("revoked_at", {
+      withTimezone: true,
     }),
 
-  name: text("name").notNull(),
-
-  tokenHash: text("token_hash").notNull().unique(),
-
-  revokedAt: timestamp("revoked_at", {
-    withTimezone: true,
-  }),
-
-  createdAt: timestamp("created_at", {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
-});
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [unique("devices_user_name_unique").on(table.userId, table.name)],
+);
 
 //
 // MESSAGES
