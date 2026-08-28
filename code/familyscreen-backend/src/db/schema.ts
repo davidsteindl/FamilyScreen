@@ -65,6 +65,7 @@ export const devices = pgTable(
 // MESSAGES
 //
 
+
 export const messages = pgTable(
   "messages",
   {
@@ -78,7 +79,10 @@ export const messages = pgTable(
       .notNull()
       .references(() => users.id),
 
-    payload: bytea("payload").notNull(),
+    textContent: text("text_content"),
+
+     bitmapData: bytea("bitmap_data")
+      .notNull(),
 
     createdAt: timestamp("created_at", {
       withTimezone: true,
