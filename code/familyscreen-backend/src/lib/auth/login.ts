@@ -4,6 +4,7 @@ import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
 
 export async function login(
+  _prevState: string | undefined,
   formData: FormData,
 ) {
   try {
@@ -14,11 +15,9 @@ export async function login(
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      if (error.type === "CredentialsSignin") {
-        return "E-Mail or Password is wrong.";
-      }
-
-      return "Login  failed.";
+      return error.type === "CredentialsSignin"
+        ? "E-Mail or Password is wrong."
+        : "Login failed.";
     }
 
     throw error;
