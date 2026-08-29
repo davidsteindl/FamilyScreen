@@ -500,7 +500,7 @@ void gt910_isr(void)
     {
       case 5:
       {
-       printf("count:%d\r\n",touch_num); //print count
+       printf("Anzahl:%d\r\n",touch_num); // Anzahl ausgeben
        printf("x0:%d,y0:%d\r\n",TPR_Structure.x[0],TPR_Structure.y[0]);
        printf("x1:%d,y1:%d\r\n",TPR_Structure.x[1],TPR_Structure.y[1]);   
        printf("x2:%d,y2:%d\r\n",TPR_Structure.x[2],TPR_Structure.y[2]); 
@@ -510,7 +510,7 @@ void gt910_isr(void)
       }
       case 4:
       {
-       printf("count:%d\r\n",touch_num); //print count
+       printf("Anzahl:%d\r\n",touch_num); // Anzahl ausgeben
        printf("x0:%d,y0:%d\r\n",TPR_Structure.x[0],TPR_Structure.y[0]);
        printf("x1:%d,y1:%d\r\n",TPR_Structure.x[1],TPR_Structure.y[1]);   
        printf("x2:%d,y2:%d\r\n",TPR_Structure.x[2],TPR_Structure.y[2]); 
@@ -524,7 +524,7 @@ void gt910_isr(void)
         TPR_Structure.x[1]=(point_data[3+8*1]<<8) | point_data[2+8*1];
         TPR_Structure.y[2]=(point_data[5+8*2]<<8) | point_data[4+8*2];
         TPR_Structure.x[2]=(point_data[3+8*2]<<8) | point_data[2+8*2];
-       printf("count:%d\r\n",touch_num); //print count
+       printf("Anzahl:%d\r\n",touch_num); // Anzahl ausgeben
        printf("x0:%d,y0:%d\r\n",TPR_Structure.x[0],TPR_Structure.y[0]);
        printf("x1:%d,y1:%d\r\n",TPR_Structure.x[1],TPR_Structure.y[1]);   
        printf("x2:%d,y2:%d\r\n",TPR_Structure.x[2],TPR_Structure.y[2]);   
@@ -535,7 +535,7 @@ void gt910_isr(void)
         TPR_Structure.x[0]=(point_data[3+0]<<8) | point_data[2+0];      
         TPR_Structure.y[1]=(point_data[5+8]<<8) | point_data[4+8];
         TPR_Structure.x[1]=(point_data[3+8]<<8) | point_data[2+8];
-      /* printf("count:%d\r\n",touch_num); //print count
+      /* printf("Anzahl:%d\r\n",touch_num); // Anzahl ausgeben
        printf("x0:%d,y0:%d\r\n",TPR_Structure.x[0],TPR_Structure.y[0]);
        printf("x1:%d,y1:%d\r\n",TPR_Structure.x[1],TPR_Structure.y[1]);*/
         
@@ -550,7 +550,7 @@ void gt910_isr(void)
         point_y = (point_data[5]<<8) | point_data[4];
         point_x = (point_data[3]<<8) | point_data[2];
         
-              /* printf("count:%d\r\n",touch_num); //print count
+              /* printf("Anzahl:%d\r\n",touch_num); // Anzahl ausgeben
                printf("x0:%d,y0:%d\r\n",point_x,point_y);*/
     
 

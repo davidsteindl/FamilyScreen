@@ -97,7 +97,7 @@ bool renderLocalDemoContent(const PageDescriptor& page) {
     return true;
   }
   if (strcmp(page.id, "home") == 0) {
-    canvas.drawMessage("WELCOME HOME", "FAMILY SCREEN");
+    canvas.drawMessage("HALLO OTTOLA", "SCHOEN DASS DU DA BIST");
     DirtyBounds unused;
     canvas.drawLine(585, 205, 665, 145, 3, true, &unused);
     canvas.drawLine(665, 145, 745, 205, 3, true, &unused);
@@ -111,11 +111,11 @@ bool renderLocalDemoContent(const PageDescriptor& page) {
     return true;
   }
   if (strcmp(page.id, "tobias") == 0) {
-    canvas.drawMessage("HELLO OTTOLA", "LOVE TOBIAS");
+    canvas.drawMessage("HALLO OTTOLA", "GRUESSE VON TOBIAS");
     return true;
   }
   if (strcmp(page.id, "david") == 0) {
-    canvas.drawMessage("HELLO OTTOLA", "LOVE DAVID");
+    canvas.drawMessage("HALLO OTTOLA", "GRUESSE VON DAVID");
     return true;
   }
 #else
@@ -138,15 +138,15 @@ void composeCurrentPage() {
   available = cache.loadContent(page.id, framebuffer + kHeaderHeight * kBytesPerRow);
 #endif
   if (!available && page.kind == PageKind::ReadOnly)
-    canvas.drawMessage("PAGE UNAVAILABLE", "WAITING FOR SYNC");
+    canvas.drawMessage("BITTE EINEN MOMENT", "DIE SEITE KOMMT GLEICH");
   canvas.drawHeader(page.label);
   xSemaphoreGive(framebufferMutex);
   cache.saveSelectedPageId(page.id);
   strokeBounds.reset(); pendingInkBounds.reset(); strokeActive = false;
   touchTracker.reset(); pendingFullRefresh = false;
   pageTransition = display.requestFull();
-  Serial.printf("Page: %s (%s), cached=%s\n", page.id,
-                page.kind == PageKind::Drawing ? "drawing" : "readonly", available ? "yes" : "no");
+  Serial.printf("Seite: %s (%s), im Speicher=%s\n", page.id,
+                page.kind == PageKind::Drawing ? "Zeichnung" : "nur Lesen", available ? "ja" : "nein");
 }
 
 void reloadManifestPreservingPage(bool displayFirstRealManifest) {
@@ -178,8 +178,8 @@ void saveDrawingSnapshot() {
   xSemaphoreTake(framebufferMutex, portMAX_DELAY);
   const bool saved = cache.snapshotDrawing(manifest.pages[currentPage].id, framebuffer, hash);
   xSemaphoreGive(framebufferMutex);
-  if (saved) { drawingDirty = false; network.requestUpload(); Serial.printf("Drawing: persisted %s\n", hash); }
-  else Serial.println("Drawing: persist failed; will retry");
+  if (saved) { drawingDirty = false; network.requestUpload(); Serial.printf("Zeichnung: sicher gespeichert (%s)\n", hash); }
+  else Serial.println("Zeichnung: Speichern fehlgeschlagen; wir versuchen es spaeter erneut");
 }
 
 void advancePage() {
@@ -223,7 +223,7 @@ void handleClear() {
   pendingInkBounds.reset(); drawingDirty = true; drawingChangedAt = millis();
   if (display.isIdle()) { pageTransition = display.requestFull(); pendingFullRefresh = false; }
   else pendingFullRefresh = true;
-  Serial.println("Drawing: cleared");
+  Serial.println("Zeichnung: Zeichenflaeche wurde geleert");
 }
 
 void serviceDisplayQueue() {
@@ -240,15 +240,15 @@ void serviceDisplayQueue() {
 
 void setup() {
   Serial.begin(115200); delay(100);
-  Serial.printf("Family screen boot: heap=%u framebuffer=%u\n",
+  Serial.printf("Familienbildschirm startet: freier Speicher=%u, Bildspeicher=%u\n",
                 static_cast<unsigned>(ESP.getFreeHeap()), static_cast<unsigned>(kFramebufferBytes));
   framebufferMutex = xSemaphoreCreateMutex();
-  if (!framebufferMutex) { Serial.println("Fatal: framebuffer mutex failed"); return; }
+  if (!framebufferMutex) { Serial.println("Schwerer Fehler: Sperre fuer den Bildspeicher konnte nicht erstellt werden"); return; }
   canvas.clearWhite(); pageButton.begin(); clearButton.begin(); touch.begin();
   const bool cacheReady = cache.begin();
 #if FAMILY_LOCAL_DEMO_MODE
   makeFallbackManifest();
-  Serial.println("Local demo mode: API requests are disabled");
+  Serial.println("Lokaler Demomodus: API-Anfragen sind ausgeschaltet");
 #else
   if (!cacheReady || !cache.loadManifest(manifest)) makeFallbackManifest();
   else ensureLocalDrawingPageLast(manifest);
@@ -256,13 +256,13 @@ void setup() {
   const String selected = cacheReady ? cache.selectedPageId() : String();
   const int selectedIndex = manifest.find(selected.c_str());
   currentPage = selectedIndex >= 0 ? static_cast<uint8_t>(selectedIndex) : 0;
-  if (!display.begin(framebuffer, framebufferMutex)) Serial.println("Fatal: display task failed");
+  if (!display.begin(framebuffer, framebufferMutex)) Serial.println("Schwerer Fehler: Bildschirm-Task konnte nicht gestartet werden");
   composeCurrentPage();
   if (cacheReady && network.begin(&cache)) {
     if (!FAMILY_LOCAL_DEMO_MODE) network.requestSync();
   }
-  else if (!cacheReady) Serial.println("Network disabled because persistent cache is unavailable");
-  else Serial.println("Fatal: network task failed");
+  else if (!cacheReady) Serial.println("Netzwerk ausgeschaltet, weil der dauerhafte Speicher nicht verfuegbar ist");
+  else Serial.println("Schwerer Fehler: Netzwerk-Task konnte nicht gestartet werden");
   observedManifestGeneration = network.manifestGeneration();
 }
 

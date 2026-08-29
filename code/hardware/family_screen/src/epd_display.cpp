@@ -51,7 +51,7 @@ void EpdDisplay::taskLoop() {
   for (;;) {
     if (xQueueReceive(queue_, &command, portMAX_DELAY) != pdTRUE) continue;
     busy_ = true;
-    if (!execute(command)) Serial.println("EPD: refresh failed after recovery attempt");
+    if (!execute(command)) Serial.println("EPD: Aktualisierung ist auch nach dem Wiederherstellungsversuch fehlgeschlagen");
     busy_ = false;
   }
 }
@@ -67,7 +67,7 @@ bool EpdDisplay::execute(const Command& command) {
       if (ok) ++partialCount_;
     }
     if (ok) return true;
-    Serial.println("EPD: timeout, resetting controller");
+    Serial.println("EPD: Zeitueberschreitung, Controller wird neu gestartet");
     hardwareReset();
   }
   return false;

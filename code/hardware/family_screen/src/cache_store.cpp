@@ -24,7 +24,7 @@ bool CacheStore::begin() {
   mutex_ = xSemaphoreCreateMutex();
   if (!mutex_) return false;
   if (!LittleFS.begin(false)) {
-    Serial.println("Cache: LittleFS mount failed; formatting once");
+    Serial.println("Speicher: LittleFS konnte nicht geoeffnet werden; einmaliger Formatierungsversuch");
     if (!LittleFS.begin(true)) return false;
   }
   LittleFS.mkdir("/pages");
@@ -32,7 +32,7 @@ bool CacheStore::begin() {
   if (!preferences_.begin("family-screen", false)) return false;
   ready_ = true;
   recoverAtomicFiles();
-  Serial.printf("Cache: %u/%u bytes used\n",
+  Serial.printf("Speicher: %u von %u Bytes belegt\n",
                 static_cast<unsigned>(LittleFS.usedBytes()), static_cast<unsigned>(LittleFS.totalBytes()));
   return true;
 }

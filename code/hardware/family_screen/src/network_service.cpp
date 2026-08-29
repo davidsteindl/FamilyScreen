@@ -32,7 +32,7 @@ void NetworkService::ensureWifi() {
     WiFi.persistent(false);
     WiFi.begin(FAMILY_WIFI_SSID, FAMILY_WIFI_PASSWORD);
     wifiStarted_ = true;
-    Serial.println("Network: connecting to Wi-Fi");
+    Serial.println("Netzwerk: Verbindung mit dem WLAN wird hergestellt");
   }
 }
 
@@ -62,8 +62,8 @@ void NetworkService::taskLoop() {
   uint32_t lastSync = 0;
   uint32_t retryAt = 0;
   uint32_t retryDelay = 5000;
-  if (FAMILY_LOCAL_DEMO_MODE) Serial.println("Network: local demo mode; Wi-Fi may connect but API calls are disabled");
-  else if (!configurationValid()) Serial.println("Network: API not configured; local cache remains available");
+  if (FAMILY_LOCAL_DEMO_MODE) Serial.println("Netzwerk: lokaler Demomodus; WLAN ist moeglich, API-Anfragen bleiben ausgeschaltet");
+  else if (!configurationValid()) Serial.println("Netzwerk: API ist nicht eingerichtet; der lokale Speicher bleibt verfuegbar");
   for (;;) {
     const bool requested = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000)) > 0;
     ensureWifi();
@@ -104,13 +104,13 @@ bool NetworkService::synchronizeManifest() {
     }
     return true;
   }
-  if (status != HTTP_CODE_OK) { Serial.printf("Network: manifest HTTP %d\n", status); http.end(); return false; }
+  if (status != HTTP_CODE_OK) { Serial.printf("Netzwerk: Seitenliste meldet HTTP %d\n", status); http.end(); return false; }
   const String body = http.getString();
   const String etag = http.header("ETag");
   http.end();
   nextManifestScratch_ = {};
   PageManifest& next = nextManifestScratch_;
-  if (!cache_->parseManifest(body, etag.c_str(), next)) { Serial.println("Network: invalid manifest"); return false; }
+  if (!cache_->parseManifest(body, etag.c_str(), next)) { Serial.println("Netzwerk: ungueltige Seitenliste empfangen"); return false; }
 
   for (uint8_t i = 0; i < next.count; ++i) {
     const PageDescriptor& page = next.pages[i];
@@ -121,7 +121,7 @@ bool NetworkService::synchronizeManifest() {
   if (!cache_->saveManifest(next)) return false;
   cache_->cleanPagesNotIn(next);
   ++manifestGeneration_;
-  Serial.printf("Network: cached manifest %s with %u pages\n", next.revision, next.count);
+  Serial.printf("Netzwerk: Seitenliste %s mit %u Seiten gespeichert\n", next.revision, next.count);
   return true;
 }
 
@@ -132,12 +132,12 @@ bool NetworkService::downloadPage(const PageDescriptor& page) {
   addAuthorization(http);
   const int status = http.GET();
   if (status != HTTP_CODE_OK || http.getSize() != static_cast<int>(kContentBytes)) {
-    Serial.printf("Network: page %s HTTP=%d length=%d\n", page.id, status, http.getSize()); http.end(); return false;
+    Serial.printf("Netzwerk: Seite %s meldet HTTP=%d, Laenge=%d\n", page.id, status, http.getSize()); http.end(); return false;
   }
   WiFiClient* stream = http.getStreamPtr();
   const bool ok = stream && cache_->storeContent(page.id, *stream, page.sha256);
   http.end();
-  if (!ok) Serial.printf("Network: rejected bitmap for %s\n", page.id);
+  if (!ok) Serial.printf("Netzwerk: Bilddaten fuer %s wurden abgelehnt\n", page.id);
   return ok;
 }
 
@@ -161,9 +161,9 @@ bool NetworkService::uploadOneDrawing() {
   http.addHeader("Idempotency-Key", hash);
   const int status = http.sendRequest("PUT", &file, kContentBytes);
   file.close(); http.end();
-  if (status < 200 || status >= 300) { Serial.printf("Network: drawing upload HTTP %d\n", status); return false; }
+  if (status < 200 || status >= 300) { Serial.printf("Netzwerk: Hochladen der Zeichnung meldet HTTP %d\n", status); return false; }
   cache_->removeOutbox(path);
-  Serial.printf("Network: uploaded drawing %s\n", hash);
+  Serial.printf("Netzwerk: Zeichnung wurde hochgeladen (%s)\n", hash);
   requestSync();
   return true;
 }

@@ -19,7 +19,7 @@ namespace family {
 bool TouchController::begin() {
   pinMode(kTouchIrqPin, INPUT);
   const bool ok = GT9XX_Initial() == SUCCESS;
-  Serial.printf("Touch: IRQ=%d SDA=%d SCL=%d, reset=power-on only, swapXY=%d mirrorX=%d mirrorY=%d\n",
+  Serial.printf("Beruehrung: IRQ=%d SDA=%d SCL=%d, Reset nur beim Einschalten, Achsentausch=%d SpiegelX=%d SpiegelY=%d\n",
                 kTouchIrqPin, kTouchSdaPin, kTouchSclPin,
                 FAMILY_TOUCH_SWAP_XY, FAMILY_TOUCH_MIRROR_X, FAMILY_TOUCH_MIRROR_Y);
   return ok;
@@ -40,7 +40,7 @@ bool TouchController::poll(TouchFrame& frame) {
     frame.contacts[i].id = data[offset] & 0x0F;
     mapCoordinates(rawX, rawY, frame.contacts[i].x, frame.contacts[i].y);
     if (diagnosticsRemaining_ > 0) {
-      Serial.printf("Touch calibration: id=%u raw=(%u,%u) screen=(%u,%u)\n",
+      Serial.printf("Beruehrungstest: ID=%u Rohwert=(%u,%u) Bildschirm=(%u,%u)\n",
                     frame.contacts[i].id, rawX, rawY, frame.contacts[i].x, frame.contacts[i].y);
       --diagnosticsRemaining_;
     }

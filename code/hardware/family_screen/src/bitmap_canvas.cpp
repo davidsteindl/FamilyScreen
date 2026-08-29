@@ -104,10 +104,10 @@ void BitmapCanvas::drawText(int16_t x, int16_t y, const char* text, uint8_t scal
 void BitmapCanvas::drawHeader(const char* label) {
   fillRect(0, 0, kDisplayWidth, kHeaderHeight, false);
   fillRect(0, kHeaderHeight - 2, kDisplayWidth, 2, true);
-  drawText(12, 8, label ? label : "PAGE", 3);
+  drawText(12, 8, label ? label : "SEITE", 3);
 }
 void BitmapCanvas::drawMessage(const char* line1, const char* line2) {
-  clearContentWhite(); drawText(40, 180, line1 ? line1 : "PAGE UNAVAILABLE", 4);
+  clearContentWhite(); drawText(40, 180, line1 ? line1 : "BITTE EINEN MOMENT", 4);
   if (line2) drawText(40, 225, line2, 3);
 }
 
