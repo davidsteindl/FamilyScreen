@@ -1,5 +1,6 @@
 import requireDevice from "@/lib/auth/require-device";
 import { getContacts } from "@/lib/contacts";
+import { renderTestBitmap, BITMAP_WIDTH, BITMAP_HEIGHT } from "@/lib/test-bitmap";
 
 export const runtime = "nodejs";
 
@@ -17,12 +18,15 @@ export async function GET(req: Request) {
     ...others.map((user) => ({
       type: "user" as const,
       ...user,
+      bitmap: renderTestBitmap(user.name).toString("base64"),
     })),
   ];
 
   return Response.json(
     {
       pageCount: pages.length,
+      bitmapWidth: BITMAP_WIDTH,
+      bitmapHeight: BITMAP_HEIGHT,
       pages,
     },
     { headers: { "Cache-Control": "no-store" } },
