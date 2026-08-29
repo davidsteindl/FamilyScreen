@@ -3,42 +3,118 @@ export const BITMAP_HEIGHT = 400;
 
 const BYTES_PER_ROW = BITMAP_WIDTH / 8;
 
-// Frame, smiley, and a solid block in the top-left corner. The block is the only
-// asymmetric element: if it shows up anywhere but top-left, the ESP draws the
-// buffer mirrored or rotated.
-function isBlack(x: number, y: number) {
-  if (x < 6 || y < 6 || x >= BITMAP_WIDTH - 6 || y >= BITMAP_HEIGHT - 6) {
-    return true;
-  }
+const MARGIN = 80;
+const GLYPH_WIDTH = 5;
+const GLYPH_HEIGHT = 7;
 
-  if (x >= 20 && x < 100 && y >= 20 && y < 100) {
-    return true;
-  }
+// 5x7 glyphs, one byte per column, bit 0 is the top row.
+const GLYPHS: Record<string, number[]> = {
+  A: [0x7e, 0x11, 0x11, 0x11, 0x7e],
+  B: [0x7f, 0x49, 0x49, 0x49, 0x36],
+  C: [0x3e, 0x41, 0x41, 0x41, 0x22],
+  D: [0x7f, 0x41, 0x41, 0x22, 0x1c],
+  E: [0x7f, 0x49, 0x49, 0x49, 0x41],
+  F: [0x7f, 0x09, 0x09, 0x09, 0x01],
+  G: [0x3e, 0x41, 0x49, 0x49, 0x7a],
+  H: [0x7f, 0x08, 0x08, 0x08, 0x7f],
+  I: [0x00, 0x41, 0x7f, 0x41, 0x00],
+  J: [0x20, 0x40, 0x41, 0x3f, 0x01],
+  K: [0x7f, 0x08, 0x14, 0x22, 0x41],
+  L: [0x7f, 0x40, 0x40, 0x40, 0x40],
+  M: [0x7f, 0x02, 0x0c, 0x02, 0x7f],
+  N: [0x7f, 0x04, 0x08, 0x10, 0x7f],
+  O: [0x3e, 0x41, 0x41, 0x41, 0x3e],
+  P: [0x7f, 0x09, 0x09, 0x09, 0x06],
+  Q: [0x3e, 0x41, 0x51, 0x21, 0x5e],
+  R: [0x7f, 0x09, 0x19, 0x29, 0x46],
+  S: [0x46, 0x49, 0x49, 0x49, 0x31],
+  T: [0x01, 0x01, 0x7f, 0x01, 0x01],
+  U: [0x3f, 0x40, 0x40, 0x40, 0x3f],
+  V: [0x1f, 0x20, 0x40, 0x20, 0x1f],
+  W: [0x3f, 0x40, 0x38, 0x40, 0x3f],
+  X: [0x63, 0x14, 0x08, 0x14, 0x63],
+  Y: [0x07, 0x08, 0x70, 0x08, 0x07],
+  Z: [0x61, 0x51, 0x49, 0x45, 0x43],
+  "0": [0x3e, 0x51, 0x49, 0x45, 0x3e],
+  "1": [0x00, 0x42, 0x7f, 0x40, 0x00],
+  "2": [0x62, 0x51, 0x49, 0x49, 0x46],
+  "3": [0x22, 0x41, 0x49, 0x49, 0x36],
+  "4": [0x18, 0x14, 0x12, 0x7f, 0x10],
+  "5": [0x27, 0x45, 0x45, 0x45, 0x39],
+  "6": [0x3c, 0x4a, 0x49, 0x49, 0x30],
+  "7": [0x01, 0x71, 0x09, 0x05, 0x03],
+  "8": [0x36, 0x49, 0x49, 0x49, 0x36],
+  "9": [0x06, 0x49, 0x49, 0x29, 0x1e],
+};
 
-  const dx = x - BITMAP_WIDTH / 2;
-  const dy = y - BITMAP_HEIGHT / 2;
-  const radius = Math.hypot(dx, dy);
-
-  const face = Math.abs(radius - 150) < 5;
-  const eyes = Math.hypot(Math.abs(dx) - 60, dy + 50) < 18;
-  const mouth = dy > 30 && Math.abs(radius - 95) < 6;
-
-  return face || eyes || mouth;
+function toGlyphs(name: string) {
+  return [
+    ...name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase(),
+  ].map((character) => GLYPHS[character] ?? null);
 }
 
-function render() {
+export function renderTestBitmap(name: string) {
   const buffer = Buffer.alloc(BYTES_PER_ROW * BITMAP_HEIGHT);
 
+  const setPixel = (x: number, y: number) => {
+    buffer[y * BYTES_PER_ROW + (x >> 3)] |= 0x80 >> (x & 7);
+  };
   for (let y = 0; y < BITMAP_HEIGHT; y++) {
     for (let x = 0; x < BITMAP_WIDTH; x++) {
-      if (isBlack(x, y)) {
-        buffer[y * BYTES_PER_ROW + (x >> 3)] |= 0x80 >> (x & 7);
+      const frame =
+        x < 6 || y < 6 || x >= BITMAP_WIDTH - 6 || y >= BITMAP_HEIGHT - 6;
+      const block = x >= 20 && x < 100 && y >= 20 && y < 100;
+
+      if (frame || block) {
+        setPixel(x, y);
       }
     }
   }
 
+  const glyphs = toGlyphs(name);
+
+  if (glyphs.length === 0) {
+    return buffer;
+  }
+
+  // One blank column between glyphs, so a glyph slot is GLYPH_WIDTH + 1 wide.
+  const scale = Math.max(
+    1,
+    Math.min(
+      Math.floor((BITMAP_WIDTH - 2 * MARGIN) / ((GLYPH_WIDTH + 1) * glyphs.length)),
+      Math.floor((BITMAP_HEIGHT - 2 * MARGIN) / GLYPH_HEIGHT),
+    ),
+  );
+
+  const textWidth = ((GLYPH_WIDTH + 1) * glyphs.length - 1) * scale;
+  const originX = Math.floor((BITMAP_WIDTH - textWidth) / 2);
+  const originY = Math.floor((BITMAP_HEIGHT - GLYPH_HEIGHT * scale) / 2);
+
+  glyphs.forEach((glyph, index) => {
+    if (!glyph) {
+      return;
+    }
+
+    for (let column = 0; column < GLYPH_WIDTH; column++) {
+      for (let row = 0; row < GLYPH_HEIGHT; row++) {
+        if (((glyph[column] >> row) & 1) === 0) {
+          continue;
+        }
+
+        const left = originX + ((GLYPH_WIDTH + 1) * index + column) * scale;
+        const top = originY + row * scale;
+
+        for (let dy = 0; dy < scale; dy++) {
+          for (let dx = 0; dx < scale; dx++) {
+            setPixel(left + dx, top + dy);
+          }
+        }
+      }
+    }
+  });
+
   return buffer;
 }
-
-// 1 bit per pixel, MSB first, row-major, no padding: a set bit is black.
-export const TEST_BITMAP = render();
