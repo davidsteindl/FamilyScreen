@@ -1,9 +1,9 @@
 import { config } from "dotenv";
-import {randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { hash } from "bcryptjs";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-http";
-import hashDeviceToken from "@/lib/hash-device-token";
+import hashDeviceToken from "@/lib/auth/hash-device-token";
 
 import { devices, users } from "./schema";
 
@@ -30,8 +30,6 @@ function getRequiredEnv(name: string) {
 function generateDeviceToken() {
   return `fs_${randomBytes(32).toString("base64url")}`;
 }
-
-
 
 async function upsertUser(name: string, email?: string, passwordHash?: string) {
   const [user] = await db

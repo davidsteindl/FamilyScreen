@@ -1,4 +1,4 @@
-import { db } from "../db/index";
+import { db } from "../../db/index";
 import hashDeviceToken from "./hash-device-token";
 import { devices } from "@/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
@@ -12,12 +12,7 @@ export default async function authenticateDevice(token: string) {
       userId: devices.userId,
     })
     .from(devices)
-    .where(
-        and(
-            eq(devices.tokenHash, tokenHash),
-            isNull(devices.revokedAt)
-        )
-    )
+    .where(and(eq(devices.tokenHash, tokenHash), isNull(devices.revokedAt)))
     .limit(1);
 
   return device ?? null;
