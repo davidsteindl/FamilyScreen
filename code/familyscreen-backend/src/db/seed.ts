@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-http";
 import hashDeviceToken from "@/lib/auth/hash-device-token";
 
-import { devices, users } from "./schema";
+import { contacts, devices, users } from "./schema";
 
 config({ path: ".env.local" });
 
@@ -79,6 +79,28 @@ async function main() {
   console.log(`- ${user1.name}`);
   console.log(`- ${user2.name}`);
   console.log(`- ${user3.name}`);
+
+  const contactPairs = [
+    [user1, user2],
+    [user1, user3],
+  ];
+
+  await db
+    .insert(contacts)
+    .values(
+      contactPairs.map(([a, b]) => {
+        const [userAId, userBId] = [a.id, b.id].sort();
+
+        return { userAId, userBId };
+      }),
+    )
+    .onConflictDoNothing();
+
+  console.log("Contacts:");
+
+  for (const [a, b] of contactPairs) {
+    console.log(`- ${a.name} <-> ${b.name}`);
+  }
 
   const deviceName = `fs_FamilyScreen ${user1.name}`;
 

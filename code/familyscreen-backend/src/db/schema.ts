@@ -7,7 +7,10 @@ import {
   bytea,
   index,
   unique,
+  primaryKey,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 //
 // USERS
@@ -97,5 +100,38 @@ export const messages = pgTable(
 
   (table) => [
     index("messages_recipient_cursor_idx").on(table.recipientUserId, table.id),
+  ],
+);
+
+//
+// CONTACTS
+//
+
+export const contacts = pgTable(
+  "contacts",
+  {
+    userAId: uuid("user_a_id")
+      .notNull()
+      .references(() => users.id, {
+        onDelete: "cascade",
+      }),
+
+    userBId: uuid("user_b_id")
+      .notNull()
+      .references(() => users.id, {
+        onDelete: "cascade",
+      }),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+
+  (table) => [
+    primaryKey({ columns: [table.userAId, table.userBId] }),
+    check("contacts_canonical_order", sql`${table.userAId} < ${table.userBId}`),
+    index("contacts_user_b_idx").on(table.userBId),
   ],
 );
