@@ -7,10 +7,13 @@
 #define SCL_H() digitalWrite(A5,HIGH)
 #define SDA_L()  digitalWrite(A4,LOW)
 #define SDA_H()  digitalWrite(A4,HIGH) 
-#define CLR_RST() digitalWrite(A3,LOW)
-#define SET_RST() digitalWrite(A3,HIGH)
-#define CLR_INT() digitalWrite(A0,LOW)
-#define SET_INT() digitalWrite(A0,HIGH)
+// GPIO39/A3 and GPIO36/A0 are input-only on LOLIN32. The working board
+// power-resets the GT911, so these legacy vendor reset/address-select writes
+// must never try to drive those pins.
+#define CLR_RST() do {} while (0)
+#define SET_RST() do {} while (0)
+#define CLR_INT() do {} while (0)
+#define SET_INT() do {} while (0)
 
 #define Is_SDA_IN digitalRead(A4)
 //mode  setting

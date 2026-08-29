@@ -1,7 +1,13 @@
 #ifndef GT911_H
 #define GT911_H	 
 #include "i2c.h"
-#include <arduino.h>
+#if __has_include(<Arduino.h>)
+#include <Arduino.h>
+#elif __has_include("Arduino.h")
+#include "Arduino.h"
+#else
+#include <stdint.h>
+#endif
 
 #define GTP_MAX_TOUCH         5
 
@@ -120,6 +126,8 @@ typedef struct
 
 ErrorStatus GT9XX_Initial(void);
 void gt910_isr(void);
+ErrorStatus gt910_read_reg(uint16_t reg_addr, uint32_t cnt, uint8_t *value);
+ErrorStatus gt910_write_reg(uint16_t reg_addr, uint32_t cnt, uint8_t *value);
 extern uint8_t  touch_num;
 //´¥ÃþµãÏà¹ØÊý¾Ý½á¹¹Ìå¶¨Òå
 typedef struct      

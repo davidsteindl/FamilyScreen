@@ -1,6 +1,12 @@
 #include "i2c.h"
 #include "GT911.h"
-#include <arduino.h>
+#if __has_include(<Arduino.h>)
+#include <Arduino.h>
+#elif __has_include("Arduino.h")
+#include "Arduino.h"
+#else
+#include <stdint.h>
+#endif
 /*
 void delayMicroseconds(unsigned int xus)
 {
@@ -15,9 +21,9 @@ void delayMicroseconds(unsigned int xus)
 //pinMode(T0, OUTPUT);   //GND
 //pinMode(T3, OUTPUT);  //VCC
 
-pinMode(A3, OUTPUT); //RST 
 pinMode(A5, OUTPUT); //SCL 
 pinMode(A4, OUTPUT); //SDA
+pinMode(A0, INPUT);  // IRQ; GPIO36 has no internal pull-up
 /******************************************************/
 }
 
@@ -157,7 +163,7 @@ uint8_t iic_write_byte(uint8_t dat, uint8_t cack)
 
 uint8_t iic_read_byte(uint8_t ack)
 {
-  uint8_t temp;
+  uint8_t temp = 0;
   uint32_t i;
   
   iic_sda_in(); 
