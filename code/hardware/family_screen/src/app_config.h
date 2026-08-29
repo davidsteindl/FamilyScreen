@@ -34,10 +34,10 @@ constexpr uint32_t kButtonDebounceMs = 45;
 constexpr uint8_t kBrushRadius = 1;
 constexpr uint8_t kPartialRefreshLimit = 20;
 
-// This UC8179 panel presents transferred data with the opposite electrical
-// polarity from our public bitmap format (where 1=white and 0=black).
+// The UC8179 DDX setting is configured so its monochrome RAM uses the public
+// bitmap format directly (1=white, 0=black) in full and partial modes.
 #ifndef FAMILY_EPD_INVERT_TRANSFER_BITS
-#define FAMILY_EPD_INVERT_TRANSFER_BITS 1
+#define FAMILY_EPD_INVERT_TRANSFER_BITS 0
 #endif
 
 #ifdef FAMILY_DEBUG_FAST_SYNC

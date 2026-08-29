@@ -74,28 +74,57 @@ bool EpdDisplay::execute(const Command& command) {
 }
 
 void EpdDisplay::hardwareReset() {
+  waveform_ = Waveform::Unknown;
   digitalWrite(kEpdResetPin, LOW); delay(10);
   digitalWrite(kEpdResetPin, HIGH); delay(10);
 }
 
-bool EpdDisplay::initializeController() {
+void EpdDisplay::setResolution() {
+  writeCommand(0x61);
+  writeData(kDisplayWidth >> 8); writeData(kDisplayWidth & 0xFF);
+  writeData(kDisplayHeight >> 8); writeData(kDisplayHeight & 0xFF);
+}
+
+bool EpdDisplay::initializeFullController() {
   hardwareReset();
   SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
-  writeCommand(0x00); writeData(0x1F);
-  writeCommand(0x50); writeData(0x10); writeData(0x07);
+  writeCommand(0x01); writeData(0x07); writeData(0x07); writeData(0x3F); writeData(0x3F);
+  writeCommand(0x06); writeData(0x17); writeData(0x17); writeData(0x28); writeData(0x17);
   writeCommand(0x04);
   SPI.endTransaction();
   if (!waitReady(6000)) return false;
   SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
-  writeCommand(0x06); writeData(0x27); writeData(0x27); writeData(0x18); writeData(0x17);
-  writeCommand(0xE0); writeData(0x02);
-  writeCommand(0xE5); writeData(0x5A);
+  writeCommand(0x00); writeData(0x1F);
+  setResolution();
+  writeCommand(0x15); writeData(0x00);
+  // DDX=01 keeps 1=white; N2OCP copies new RAM to old RAM after refresh.
+  writeCommand(0x50); writeData(0x29); writeData(0x07);
+  writeCommand(0x60); writeData(0x22);
   SPI.endTransaction();
+  waveform_ = Waveform::Full;
+  return true;
+}
+
+bool EpdDisplay::initializePartialController() {
+  if (waveform_ == Waveform::Partial) return true;
+  // Waveform changes require a reset. UC8179 image RAM survives the reset.
+  hardwareReset();
+  SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
+  writeCommand(0x00); writeData(0x1F);
+  setResolution();
+  writeCommand(0x04);
+  SPI.endTransaction();
+  if (!waitReady(6000)) return false;
+  SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
+  writeCommand(0xE0); writeData(0x02);
+  writeCommand(0xE5); writeData(0x6E);
+  SPI.endTransaction();
+  waveform_ = Waveform::Partial;
   return true;
 }
 
 bool EpdDisplay::fullRefresh() {
-  if (!initializeController()) return false;
+  if (!initializeFullController()) return false;
   SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
   writeCommand(0x10);
   for (size_t i = 0; i < kFramebufferBytes; ++i) writeData(displayByte(0xFF));
@@ -112,6 +141,7 @@ bool EpdDisplay::fullRefresh() {
 }
 
 bool EpdDisplay::partialRefresh(Rect rect) {
+  if (!initializePartialController()) return false;
   if (rect.x < 0) { rect.width += rect.x; rect.x = 0; }
   if (rect.y < 0) { rect.height += rect.y; rect.y = 0; }
   if (rect.x + rect.width > kDisplayWidth) rect.width = kDisplayWidth - rect.x;
@@ -140,20 +170,18 @@ bool EpdDisplay::partialRefresh(Rect rect) {
   const size_t rowBytes = rect.width / 8;
   for (int16_t y = rect.y; y < rect.y + rect.height; ++y) {
     const uint8_t* row = framebuffer_ + static_cast<size_t>(y) * kBytesPerRow + firstByte;
-    // UC8179 partial mode uses the framebuffer polarity directly on this panel.
-    // Sending displayByte() here turns the white dirty rectangle black and the
-    // black stroke white, even though full-refresh transfers require inversion.
+    // Full and partial controller modes now share the same 1=white polarity.
     for (size_t x = 0; x < rowBytes; ++x) writeData(row[x]);
   }
   xSemaphoreGive(framebufferMutex_);
+  // The window limits the RAM write. Refresh itself is a differential scan;
+  // exiting the window first avoids driving the whole rectangle as a block.
+  writeCommand(0x92);
+  writeCommand(0x50); writeData(0xA9); writeData(0x07);
   writeCommand(0x12);
   SPI.endTransaction();
-  delay(1);
-  const bool ok = waitReady(6000);
-  SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
-  writeCommand(0x92);
-  SPI.endTransaction();
-  return ok;
+  delay(10);
+  return waitReady(6000);
 }
 
 bool EpdDisplay::waitReady(uint32_t timeoutMs) {

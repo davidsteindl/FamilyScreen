@@ -17,6 +17,7 @@ class EpdDisplay {
 
  private:
   enum class CommandType : uint8_t { Full, Partial };
+  enum class Waveform : uint8_t { Unknown, Full, Partial };
   struct Command { CommandType type; Rect rect; };
 
   static void taskEntry(void* context);
@@ -24,7 +25,9 @@ class EpdDisplay {
   bool execute(const Command& command);
   bool fullRefresh();
   bool partialRefresh(Rect rect);
-  bool initializeController();
+  bool initializeFullController();
+  bool initializePartialController();
+  void setResolution();
   bool waitReady(uint32_t timeoutMs);
   void hardwareReset();
   void writeCommand(uint8_t command);
@@ -36,6 +39,7 @@ class EpdDisplay {
   TaskHandle_t task_ = nullptr;
   volatile bool busy_ = false;
   uint8_t partialCount_ = 0;
+  Waveform waveform_ = Waveform::Unknown;
 };
 
 }  // namespace family
