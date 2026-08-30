@@ -1,15 +1,27 @@
-import { BITMAP_HEIGHT, BITMAP_WIDTH } from "./bitmap";
 import {
-  createBitmap,
   drawText,
   fillRect,
   fitScale,
   strokeRect,
   textWidth,
   wrapText,
-  GLYPH_HEIGHT,
   type Bitmap,
 } from "./bitmap-render";
+import {
+  createScreen,
+  drawRight,
+  drawTextBlock,
+  inset,
+  lineHeight,
+  BODY_Y,
+  LINE_GAP,
+  BORDER,
+  HEADER,
+  INNER_BOTTOM,
+  INNER_X,
+  PAD,
+  type Box,
+} from "./layout";
 import {
   formatDayHeading,
   formatTime,
@@ -19,28 +31,7 @@ import {
 import { quoteOfTheDay } from "../content/quote";
 import type { Weather } from "../content/weather";
 
-const MARGIN = 12;
-const BORDER = 2;
-const PAD = 12;
-const LINE_GAP = 8;
 const BLOCK_GAP = 14;
-
-type Box = { x: number; y: number; width: number; height: number };
-
-const INNER_X = MARGIN + BORDER;
-const INNER_Y = MARGIN + BORDER;
-const INNER_RIGHT = BITMAP_WIDTH - MARGIN - BORDER;
-const INNER_BOTTOM = BITMAP_HEIGHT - MARGIN - BORDER;
-
-const HEADER: Box = {
-  x: INNER_X,
-  y: INNER_Y,
-  width: INNER_RIGHT - INNER_X,
-  height: 48,
-};
-
-const HEADER_RULE_Y = HEADER.y + HEADER.height;
-const BODY_Y = HEADER_RULE_Y + BORDER;
 
 const WEATHER_WIDTH = 296;
 const CALENDAR_WIDTH = 268;
@@ -103,29 +94,6 @@ const HEADING_SCALE = 3;
 const EVENT_SCALE = 2;
 const DAY_SCALE = 2;
 const QUOTE_SCALE = 3;
-
-function lineHeight(scale: number) {
-  return GLYPH_HEIGHT * scale;
-}
-
-function inset(box: Box): Box {
-  return {
-    x: box.x + PAD,
-    y: box.y + PAD,
-    width: box.width - 2 * PAD,
-    height: box.height - 2 * PAD,
-  };
-}
-
-function drawRight(
-  bitmap: Bitmap,
-  text: string,
-  right: number,
-  y: number,
-  scale: number,
-) {
-  drawText(bitmap, text, right - textWidth(text, scale), y, scale);
-}
 
 function drawHeader(bitmap: Bitmap, renderedAt: Date) {
   const y =
@@ -261,28 +229,7 @@ function drawMonth(bitmap: Bitmap, renderedAt: Date, box: Box) {
 }
 
 function drawQuote(bitmap: Bitmap, renderedAt: Date, box: Box) {
-  const area = inset(box);
-  const quote = quoteOfTheDay(renderedAt);
-
-  // The longest word picks the scale, so no line can run past the column.
-  const scale = Math.min(
-    ...quote.split(" ").map((word) => fitScale(word, area.width, QUOTE_SCALE)),
-  );
-
-  const lines = wrapText(quote, area.width, scale);
-  const height =
-    lines.length * lineHeight(scale) + (lines.length - 1) * LINE_GAP;
-  const top = area.y + Math.floor((area.height - height) / 2);
-
-  lines.forEach((line, index) => {
-    drawText(
-      bitmap,
-      line,
-      area.x,
-      top + index * (lineHeight(scale) + LINE_GAP),
-      scale,
-    );
-  });
+  drawTextBlock(bitmap, quoteOfTheDay(renderedAt), box, QUOTE_SCALE);
 }
 
 export type Homescreen = {
@@ -301,18 +248,8 @@ export function renderHomescreen({
   secondary,
   events,
 }: Homescreen) {
-  const bitmap = createBitmap();
+  const bitmap = createScreen();
 
-  strokeRect(
-    bitmap,
-    MARGIN,
-    MARGIN,
-    BITMAP_WIDTH - 2 * MARGIN,
-    BITMAP_HEIGHT - 2 * MARGIN,
-    BORDER,
-  );
-
-  fillRect(bitmap, INNER_X, HEADER_RULE_Y, HEADER.width, BORDER);
   fillRect(bitmap, CALENDAR_X - BORDER, BODY_Y, BORDER, INNER_BOTTOM - BODY_Y);
   fillRect(bitmap, QUOTE_X - BORDER, BODY_Y, BORDER, INNER_BOTTOM - BODY_Y);
   fillRect(bitmap, INNER_X, WEATHER_SPLIT_Y, WEATHER_WIDTH, BORDER);

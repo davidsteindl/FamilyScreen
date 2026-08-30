@@ -8,7 +8,7 @@ import {
   sha256Hex,
   strongEtag,
 } from "./device-wire";
-import { renderMockMessage } from "./message-screen";
+import { renderMessage } from "./message";
 
 assert.equal(BITMAP_WIDTH, 800);
 assert.equal(BITMAP_HEIGHT, 440);
@@ -20,9 +20,14 @@ assert.ok(blank.bytes.every((byte) => byte === 0xff));
 blank.setPixel(0, 0);
 assert.equal(blank.bytes[0], 0x7f);
 
-const mock = renderMockMessage("Tobias", "Ottola");
-assert.equal(mock.byteLength, BITMAP_BYTES);
-assert.ok(mock.some((byte) => byte !== 0xff));
+// A rendered page has to be exactly one framebuffer, or the firmware drops it.
+const page = renderMessage({
+  from: "TOBIAS",
+  sentAt: new Date("2026-08-30T10:00:00Z"),
+  text: "HALLO OTTOLA",
+});
+assert.equal(page.byteLength, BITMAP_BYTES);
+assert.ok(page.some((byte) => byte !== 0xff));
 
 assert.equal(
   sha256Hex(new Uint8Array([0, 1, 2])),

@@ -25,6 +25,7 @@ import {
   fitScale,
   strokeRect,
   textWidth,
+  unsupportedCharacters,
   wrapText,
 } from "./bitmap-render";
 import { renderHomescreen } from "./homescreen";
@@ -239,7 +240,7 @@ assert.notEqual(
 for (let offset = 0; offset < 10; offset++) {
   const quote = quoteOfTheDay(new Date(Date.UTC(2026, 0, 1 + offset, 12)));
   assert.ok(quote.length > 0);
-  assert.ok(!quote.includes(","), `quote has a comma: ${quote}`);
+  assert.deepEqual(unsupportedCharacters(quote), [], `quote: ${quote}`);
 }
 
 //

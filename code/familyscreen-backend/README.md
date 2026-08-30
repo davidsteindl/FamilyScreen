@@ -19,9 +19,10 @@ Open `http://localhost:3000`. The web UI is intentionally unchanged; the
 existing Create homescreen route still previews its homescreen bitmap.
 
 Weather comes from Open-Meteo and is cached for 15 minutes. If it is unreachable,
-the homescreen still renders using deterministic mock weather. Mock appointments
-and mock contact messages make a freshly seeded setup useful without first
-creating content.
+the homescreen still renders using deterministic mock weather. Appointments and
+messages have no stand-in: an empty calendar says so, and a contact who has not
+written yet gets a page saying that. Inventing an appointment on a family screen
+is worse than showing none.
 
 ## Device setup
 

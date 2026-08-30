@@ -1,57 +1,67 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { messages } from "@/db/schema";
 import { getContacts } from "@/lib/contacts";
+import { BITMAP_BYTES } from "@/lib/screen/bitmap";
 
-export async function getLatestInboundMessage(
-  recipientUserId: string,
+/**
+ * drizzle-orm 1.0.0-rc.4 normalises a bytea parameter with String(), which
+ * utf8-decodes the Buffer and destroys every byte above 0x7f — a 44 kB bitmap
+ * arrives as replacement characters. Handing Postgres hex sidesteps the codec,
+ * because an SQL chunk has no column encoder for it to apply.
+ * One line instead of a custom column type; drop it once drizzle ships a fix.
+ */
+function toBytea(bytes: Uint8Array) {
+  return sql`decode(${Buffer.from(bytes).toString("hex")}, 'hex')`;
+}
+
+/** The newest message this sender wrote to this recipient, as the device shows it. */
+export async function latestMessageFor(
   senderUserId: string,
+  recipientUserId: string,
 ) {
-  const [message] = await db
-    .select({
-      id: messages.id,
-      bitmapData: messages.bitmapData,
-      textContent: messages.textContent,
-      createdAt: messages.createdAt,
-    })
+  const [row] = await db
+    .select({ bitmapData: messages.bitmapData })
     .from(messages)
     .where(
       and(
-        eq(messages.recipientUserId, recipientUserId),
         eq(messages.senderUserId, senderUserId),
+        eq(messages.recipientUserId, recipientUserId),
       ),
     )
     .orderBy(desc(messages.id))
     .limit(1);
 
-  return message;
+  // Rows stored before the screen grew to 440 rows are the wrong length, and the
+  // firmware rejects a short page rather than drawing it. Treat them as absent.
+  if (row?.bitmapData?.byteLength !== BITMAP_BYTES) {
+    return null;
+  }
+
+  // The driver hands back a Buffer; the renderers speak Uint8Array.
+  return Uint8Array.from(row.bitmapData);
 }
 
-export async function createMessage({
-  senderUserId,
-  recipientUserId,
-  textContent,
-  bitmapData,
-}: {
-  senderUserId: string;
-  recipientUserId: string;
-  textContent: string | null;
-  bitmapData: Uint8Array;
-}) {
-  const [message] = await db
-    .insert(messages)
-    .values({
-      senderUserId,
-      recipientUserId,
-      textContent,
-      bitmapData: Buffer.from(bitmapData),
-    })
-    .returning({ id: messages.id, createdAt: messages.createdAt });
-
-  return message;
+export async function insertMessage(
+  senderUserId: string,
+  recipientUserId: string,
+  text: string,
+  bitmap: Uint8Array,
+) {
+  await db.insert(messages).values({
+    senderUserId,
+    recipientUserId,
+    textContent: text,
+    bitmapData: toBytea(bitmap),
+  });
 }
 
+/**
+ * A drawing uploaded by a physical screen goes to every contact at once: the
+ * device has no recipient picker, so drawing on it means showing the family.
+ * The unique index on (device, key, recipient) makes a retried upload a no-op.
+ */
 export async function storeDeviceBroadcast({
   deviceId,
   senderUserId,
@@ -77,7 +87,7 @@ export async function storeDeviceBroadcast({
       recipients.map((recipient) => ({
         senderUserId,
         recipientUserId: recipient.userId,
-        bitmapData: Buffer.from(bitmapData),
+        bitmapData: toBytea(bitmapData),
         sourceDeviceId: deviceId,
         contentSha256,
         idempotencyKey,
