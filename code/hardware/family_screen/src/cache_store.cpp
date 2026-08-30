@@ -5,12 +5,25 @@
 #include <mbedtls/sha256.h>
 #include <new>
 #include <string.h>
+#include <sys/stat.h>
 #include "app_config.h"
 
 namespace family {
 namespace {
 constexpr const char* kManifestPath = "/manifest.json";
 constexpr const char* kManifestTemporaryPath = "/manifest.tmp";
+
+// FS::exists/open logs expected first-boot misses as errors. stat() lets normal
+// optional-file checks stay quiet while using the same LittleFS mount point.
+bool fileExists(const String& path) {
+  const String mountedPath = String("/littlefs") + path;
+  struct stat information {};
+  return stat(mountedPath.c_str(), &information) == 0 && S_ISREG(information.st_mode);
+}
+
+String childPath(const char* directory, const String& name) {
+  return name.startsWith("/") ? name : String(directory) + "/" + name;
+}
 
 void copyText(char* destination, size_t capacity, const char* source) {
   if (!destination || capacity == 0) return;
@@ -106,6 +119,7 @@ bool CacheStore::parseManifest(const String& json, const char* etag, PageManifes
 bool CacheStore::loadManifest(PageManifest& manifest) {
   if (!ready_) return false;
   if (xSemaphoreTake(mutex_, pdMS_TO_TICKS(1000)) != pdTRUE) return false;
+  if (!fileExists(kManifestPath)) { xSemaphoreGive(mutex_); return false; }
   File file = LittleFS.open(kManifestPath, FILE_READ);
   if (!file) { xSemaphoreGive(mutex_); return false; }
   String json = file.readString(); file.close();
@@ -147,11 +161,11 @@ bool CacheStore::writeManifestFile(const PageManifest& manifest, const String& p
 
 bool CacheStore::replaceFile(const String& temporary, const String& target) {
   const String backup = target + ".bak";
-  LittleFS.remove(backup);
-  const bool hadTarget = LittleFS.exists(target);
+  if (fileExists(backup)) LittleFS.remove(backup);
+  const bool hadTarget = fileExists(target);
   if (hadTarget && !LittleFS.rename(target, backup)) return false;
   if (LittleFS.rename(temporary, target)) {
-    LittleFS.remove(backup);
+    if (fileExists(backup)) LittleFS.remove(backup);
     return true;
   }
   if (hadTarget) LittleFS.rename(backup, target);
@@ -160,18 +174,18 @@ bool CacheStore::replaceFile(const String& temporary, const String& target) {
 
 void CacheStore::recoverAtomicFiles() {
   const String manifestBackup = String(kManifestPath) + ".bak";
-  if (!LittleFS.exists(kManifestPath) && LittleFS.exists(manifestBackup)) LittleFS.rename(manifestBackup, kManifestPath);
-  else if (LittleFS.exists(manifestBackup)) LittleFS.remove(manifestBackup);
-  LittleFS.remove(kManifestTemporaryPath);
-  LittleFS.remove("/outbox/new.tmp");
+  if (!fileExists(kManifestPath) && fileExists(manifestBackup)) LittleFS.rename(manifestBackup, kManifestPath);
+  else if (fileExists(manifestBackup)) LittleFS.remove(manifestBackup);
+  if (fileExists(kManifestTemporaryPath)) LittleFS.remove(kManifestTemporaryPath);
+  if (fileExists("/outbox/new.tmp")) LittleFS.remove("/outbox/new.tmp");
   File directory = LittleFS.open("/pages");
   if (!directory || !directory.isDirectory()) return;
   File file = directory.openNextFile();
   while (file) {
-    const String name = file.name(); file.close();
+    const String name = childPath("/pages", file.name()); file.close();
     if (name.endsWith(".bak")) {
       const String target = name.substring(0, name.length() - 4);
-      if (!LittleFS.exists(target)) LittleFS.rename(name, target); else LittleFS.remove(name);
+      if (!fileExists(target)) LittleFS.rename(name, target); else LittleFS.remove(name);
     } else if (name.endsWith(".tmp")) LittleFS.remove(name);
     file = directory.openNextFile();
   }
@@ -181,7 +195,7 @@ void CacheStore::recoverAtomicFiles() {
 bool CacheStore::saveManifest(const PageManifest& manifest) {
   if (!ready_) return false;
   if (xSemaphoreTake(mutex_, pdMS_TO_TICKS(1000)) != pdTRUE) return false;
-  LittleFS.remove(kManifestTemporaryPath);
+  if (fileExists(kManifestTemporaryPath)) LittleFS.remove(kManifestTemporaryPath);
   const bool written = writeManifestFile(manifest, kManifestTemporaryPath);
   const bool ok = written && replaceFile(kManifestTemporaryPath, kManifestPath);
   xSemaphoreGive(mutex_);
@@ -191,7 +205,9 @@ bool CacheStore::saveManifest(const PageManifest& manifest) {
 bool CacheStore::loadContent(const char* pageId, uint8_t* destination) {
   if (!ready_) return false;
   if (!validId(pageId) || !destination) return false;
-  File file = LittleFS.open(pagePath(pageId), FILE_READ);
+  const String path = pagePath(pageId);
+  if (!fileExists(path)) return false;
+  File file = LittleFS.open(path, FILE_READ);
   if (!file || file.size() != kContentBytes) { if (file) file.close(); return false; }
   const size_t read = file.read(destination, kContentBytes); file.close();
   return read == kContentBytes;
@@ -204,6 +220,7 @@ void CacheStore::hashToHex(const uint8_t digest[32], char output[65]) {
 }
 
 bool CacheStore::hashFile(const String& path, char hash[65]) {
+  if (!fileExists(path)) return false;
   File file = LittleFS.open(path, FILE_READ); if (!file) return false;
   mbedtls_sha256_context context; mbedtls_sha256_init(&context); mbedtls_sha256_starts_ret(&context, 0);
   uint8_t buffer[512];
@@ -212,7 +229,7 @@ bool CacheStore::hashFile(const String& path, char hash[65]) {
   hashToHex(digest, hash); return true;
 }
 
-bool CacheStore::storeContent(const char* pageId, Stream& stream, const char* expectedSha256) {
+bool CacheStore::storeContent(const char* pageId, HTTPClient& http, const char* expectedSha256) {
   if (!ready_) return false;
   if (!validId(pageId) || !validHash(expectedSha256)) return false;
   const size_t freeBytes = LittleFS.totalBytes() - LittleFS.usedBytes();
@@ -222,20 +239,23 @@ bool CacheStore::storeContent(const char* pageId, Stream& stream, const char* ex
     return false;
   }
   const String temporary = String("/pages/.") + pageId + ".tmp";
-  LittleFS.remove(temporary);
+  if (fileExists(temporary)) LittleFS.remove(temporary);
   File file = LittleFS.open(temporary, FILE_WRITE); if (!file) return false;
-  mbedtls_sha256_context context; mbedtls_sha256_init(&context); mbedtls_sha256_starts_ret(&context, 0);
-  uint8_t buffer[512]; size_t total = 0;
-  while (total < kContentBytes) {
-    const size_t wanted = min(sizeof(buffer), kContentBytes - total);
-    const size_t count = stream.readBytes(buffer, wanted);
-    if (count == 0) break;
-    if (file.write(buffer, count) != count) break;
-    mbedtls_sha256_update_ret(&context, buffer, count); total += count;
+  // Let HTTPClient consume the complete response according to its declared
+  // framing. Its copier handles TCP availability and partial reads better than
+  // fixed-size Stream::readBytes calls on a marginal Wi-Fi connection.
+  const int received = http.writeToStream(&file);
+  file.flush();
+  file.close();
+  char actual[65] = {};
+  const bool valid = received == static_cast<int>(kContentBytes) &&
+                     hashFile(temporary, actual) && strcmp(actual, expectedSha256) == 0;
+  if (!valid) {
+    Serial.printf("Speicher: Seite %s unvollstaendig oder Pruefsumme falsch (%d/%u Bytes)\n",
+                  pageId, received, static_cast<unsigned>(kContentBytes));
+    LittleFS.remove(temporary);
+    return false;
   }
-  file.flush(); file.close(); uint8_t digest[32]; mbedtls_sha256_finish_ret(&context, digest); mbedtls_sha256_free(&context);
-  char actual[65]; hashToHex(digest, actual);
-  if (total != kContentBytes || strcmp(actual, expectedSha256) != 0) { LittleFS.remove(temporary); return false; }
   if (xSemaphoreTake(mutex_, pdMS_TO_TICKS(1000)) != pdTRUE) { LittleFS.remove(temporary); return false; }
   const bool ok = replaceFile(temporary, pagePath(pageId)); xSemaphoreGive(mutex_); return ok;
 }
@@ -243,6 +263,7 @@ bool CacheStore::storeContent(const char* pageId, Stream& stream, const char* ex
 bool CacheStore::contentMatches(const PageDescriptor& page) {
   if (!ready_) return false;
   const String path = pagePath(page.id);
+  if (!fileExists(path)) return false;
   File file = LittleFS.open(path, FILE_READ); if (!file || file.size() != kContentBytes) { if (file) file.close(); return false; }
   file.close(); char actual[65]; return hashFile(path, actual) && strcmp(actual, page.sha256) == 0;
 }
@@ -252,7 +273,7 @@ void CacheStore::cleanPagesNotIn(const PageManifest& manifest) {
   File directory = LittleFS.open("/pages"); if (!directory || !directory.isDirectory()) return;
   File file = directory.openNextFile();
   while (file) {
-    const String name = file.name(); file.close();
+    const String name = childPath("/pages", file.name()); file.close();
     if (name.endsWith(".bin")) {
       String id = name.substring(name.lastIndexOf('/') + 1, name.length() - 4);
       if (manifest.find(id.c_str()) < 0 && id != kLocalDrawingPageId) LittleFS.remove(name);
@@ -268,14 +289,16 @@ void CacheStore::saveSelectedPageId(const char* pageId) { if (ready_ && pageId) 
 void CacheStore::discardDrawing(const char* pageId) {
   if (!ready_ || !validId(pageId)) return;
   if (xSemaphoreTake(mutex_, pdMS_TO_TICKS(1000)) != pdTRUE) return;
-  LittleFS.remove(pagePath(pageId));
-  LittleFS.remove(String("/pages/.") + pageId + ".draw.tmp");
-  LittleFS.remove("/outbox/new.tmp");
+  const String drawingPath = pagePath(pageId);
+  const String drawingTemporary = String("/pages/.") + pageId + ".draw.tmp";
+  if (fileExists(drawingPath)) LittleFS.remove(drawingPath);
+  if (fileExists(drawingTemporary)) LittleFS.remove(drawingTemporary);
+  if (fileExists("/outbox/new.tmp")) LittleFS.remove("/outbox/new.tmp");
   File directory = LittleFS.open("/outbox");
   if (directory && directory.isDirectory()) {
     File file = directory.openNextFile();
     while (file) {
-      const String name = file.name(); file.close();
+      const String name = childPath("/outbox", file.name()); file.close();
       if (name.endsWith(".bin")) LittleFS.remove(name);
       file = directory.openNextFile();
     }
@@ -290,7 +313,8 @@ bool CacheStore::snapshotDrawing(const char* pageId, const uint8_t* framebuffer,
   if (!validId(pageId) || !framebuffer || !outHash) return false;
   const String pageTemporary = String("/pages/.") + pageId + ".draw.tmp";
   const String outTemporary = "/outbox/new.tmp";
-  LittleFS.remove(pageTemporary); LittleFS.remove(outTemporary);
+  if (fileExists(pageTemporary)) LittleFS.remove(pageTemporary);
+  if (fileExists(outTemporary)) LittleFS.remove(outTemporary);
   if (LittleFS.totalBytes() - LittleFS.usedBytes() < kContentBytes + 4096) {
     Serial.println("Speicher: fuer die Zeichnung ist gerade nicht genug Platz frei");
     return false;
@@ -321,7 +345,7 @@ bool CacheStore::snapshotDrawing(const char* pageId, const uint8_t* framebuffer,
   if (!ok) return false;
 
   const String outPath = String("/outbox/") + outHash + ".bin";
-  if (!LittleFS.exists(outPath)) {
+  if (!fileExists(outPath)) {
     File source = LittleFS.open(pagePath(pageId), FILE_READ);
     File out = LittleFS.open(outTemporary, FILE_WRITE);
     if (!source || !out) {
@@ -342,14 +366,14 @@ bool CacheStore::snapshotDrawing(const char* pageId, const uint8_t* framebuffer,
     if (xSemaphoreTake(mutex_, pdMS_TO_TICKS(1000)) != pdTRUE) {
       LittleFS.remove(outTemporary); return false;
     }
-    if (LittleFS.exists(outPath)) LittleFS.remove(outTemporary);
+    if (fileExists(outPath)) LittleFS.remove(outTemporary);
     else ok = LittleFS.rename(outTemporary, outPath);
     xSemaphoreGive(mutex_);
     if (!ok) { LittleFS.remove(outTemporary); return false; }
   }
 
   File directory = LittleFS.open("/outbox"); File file = directory.openNextFile();
-  while (file) { String name = file.name(); file.close(); if (name.endsWith(".bin") && name != outPath) LittleFS.remove(name); file = directory.openNextFile(); }
+  while (file) { String name = childPath("/outbox", file.name()); file.close(); if (name.endsWith(".bin") && name != outPath) LittleFS.remove(name); file = directory.openNextFile(); }
   directory.close(); return true;
 }
 
@@ -358,7 +382,7 @@ bool CacheStore::firstOutbox(String& path, char hash[65]) {
   File directory = LittleFS.open("/outbox"); if (!directory || !directory.isDirectory()) return false;
   File file = directory.openNextFile();
   while (file) {
-    const String name = file.name(); const size_t size = file.size(); file.close();
+    const String name = childPath("/outbox", file.name()); const size_t size = file.size(); file.close();
     if (name.endsWith(".bin") && size == kContentBytes) {
       const int slash = name.lastIndexOf('/'); const String stem = name.substring(slash + 1, name.length() - 4);
       if (validHash(stem.c_str())) { path = name; copyText(hash, 65, stem.c_str()); directory.close(); return true; }
@@ -368,6 +392,9 @@ bool CacheStore::firstOutbox(String& path, char hash[65]) {
   directory.close(); return false;
 }
 bool CacheStore::hasOutbox() { String path; char hash[65]; return firstOutbox(path, hash); }
-void CacheStore::removeOutbox(const String& path) { if (ready_ && path.startsWith("/outbox/") && path.endsWith(".bin")) LittleFS.remove(path); }
+void CacheStore::removeOutbox(const String& path) {
+  if (ready_ && path.startsWith("/outbox/") && path.endsWith(".bin") && fileExists(path))
+    LittleFS.remove(path);
+}
 
 }  // namespace family

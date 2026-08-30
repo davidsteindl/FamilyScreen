@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <FS.h>
+#include <HTTPClient.h>
 #include <Preferences.h>
 #include <freertos/semphr.h>
 #include "family_types.h"
@@ -15,7 +16,7 @@ class CacheStore {
   bool parseManifest(const String& json, const char* etag, PageManifest& manifest) const;
   bool saveManifest(const PageManifest& manifest);
   bool loadContent(const char* pageId, uint8_t* destination);
-  bool storeContent(const char* pageId, Stream& stream, const char* expectedSha256);
+  bool storeContent(const char* pageId, HTTPClient& http, const char* expectedSha256);
   bool contentMatches(const PageDescriptor& page);
   void cleanPagesNotIn(const PageManifest& manifest);
 

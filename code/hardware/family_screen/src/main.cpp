@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
+#include <string.h>
 
 #include "app_config.h"
 #include "bitmap_canvas.h"
@@ -57,13 +58,27 @@ DirtyBounds strokeBounds;
 DirtyBounds pendingInkBounds;
 bool drawingDirty = false;
 uint32_t drawingChangedAt = 0;
+bool networkTaskReady = false;
+uint32_t recoveryRestartAt = 0;
+
+bool deadlineReached(uint32_t now, uint32_t deadline) {
+  return static_cast<int32_t>(now - deadline) >= 0;
+}
+
+void scheduleRecoveryRestart(const char* reason) {
+  const uint32_t target = millis() + kStartupFailureRestartMs;
+  if (recoveryRestartAt == 0 || static_cast<int32_t>(target - recoveryRestartAt) < 0)
+    recoveryRestartAt = target;
+  Serial.printf("Wiederherstellung: %s; Neustart in %lu Minuten\n", reason,
+                static_cast<unsigned long>(kStartupFailureRestartMs / 60000));
+}
 
 bool isDrawingPage() {
   return manifest.count && currentPage < manifest.count && manifest.pages[currentPage].kind == PageKind::Drawing;
 }
 
 void makeFallbackManifest() {
-  manifest = {}; strcpy(manifest.revision, "local-demo"); manifest.count = 4;
+  memset(&manifest, 0, sizeof(manifest)); strcpy(manifest.revision, "local-demo"); manifest.count = 4;
   strcpy(manifest.pages[0].id, "home"); strcpy(manifest.pages[0].label, "Home");
   manifest.pages[0].kind = PageKind::ReadOnly;
   strcpy(manifest.pages[1].id, "ottola"); strcpy(manifest.pages[1].label, "Ottola");
@@ -91,7 +106,6 @@ void ensureLocalDrawingPageLast(PageManifest& pages) {
 }
 
 bool renderLocalDemoContent(const PageDescriptor& page) {
-#if FAMILY_LOCAL_DEMO_MODE
   if (strcmp(page.id, "ottola") == 0) {
     canvas.clearContentWhite();
     return true;
@@ -118,9 +132,6 @@ bool renderLocalDemoContent(const PageDescriptor& page) {
     canvas.drawMessage("HALLO OTTOLA", "GRUESSE VON DAVID");
     return true;
   }
-#else
-  (void)page;
-#endif
   return false;
 }
 
@@ -129,14 +140,11 @@ void composeCurrentPage(bool cleanupRefresh = false) {
   const PageDescriptor& page = manifest.pages[currentPage];
   xSemaphoreTake(framebufferMutex, portMAX_DELAY);
   canvas.clearWhite();
-  bool available = false;
-#if FAMILY_LOCAL_DEMO_MODE
-  if (page.kind == PageKind::Drawing)
-    available = cache.loadContent(page.id, framebuffer + kHeaderHeight * kBytesPerRow);
-  if (!available) available = renderLocalDemoContent(page);
-#else
-  available = cache.loadContent(page.id, framebuffer + kHeaderHeight * kBytesPerRow);
-#endif
+  bool available = cache.loadContent(page.id, framebuffer + kHeaderHeight * kBytesPerRow);
+  // A factory-fresh or reformatted device remains useful even before its first
+  // successful network synchronization. Once a real manifest is loaded, only
+  // verified cached server content is shown.
+  if (!available && usingFallbackManifest) available = renderLocalDemoContent(page);
   if (!available && page.kind == PageKind::ReadOnly)
     canvas.drawMessage("BITTE EINEN MOMENT", "DIE SEITE KOMMT GLEICH");
   canvas.drawHeader(page.label);
@@ -151,7 +159,10 @@ void composeCurrentPage(bool cleanupRefresh = false) {
 }
 
 void reloadManifestPreservingPage(bool displayFirstRealManifest) {
-  manifestScratch = {}; if (!cache.loadManifest(manifestScratch)) return;
+  // Value-initializing a 6 KB PageManifest here creates a temporary on the
+  // small Arduino loop stack. Clear the global buffer in place instead.
+  memset(&manifestScratch, 0, sizeof(manifestScratch));
+  if (!cache.loadManifest(manifestScratch)) return;
   ensureLocalDrawingPageLast(manifestScratch);
   char oldId[65] = {};
   if (manifest.count && currentPage < manifest.count) strcpy(oldId, manifest.pages[currentPage].id);
@@ -254,9 +265,13 @@ void setup() {
   Serial.printf("Familienbildschirm startet: freier Speicher=%u, Bildspeicher=%u\n",
                 static_cast<unsigned>(ESP.getFreeHeap()), static_cast<unsigned>(kFramebufferBytes));
   framebufferMutex = xSemaphoreCreateMutex();
-  if (!framebufferMutex) { Serial.println("Schwerer Fehler: Sperre fuer den Bildspeicher konnte nicht erstellt werden"); return; }
+  if (!framebufferMutex) {
+    Serial.println("Schwerer Fehler: Sperre fuer den Bildspeicher konnte nicht erstellt werden; Neustart");
+    delay(1000); ESP.restart(); return;
+  }
   canvas.clearWhite(); pageButton.begin(); clearButton.begin(); touch.begin();
   const bool cacheReady = cache.begin();
+  if (!cacheReady) scheduleRecoveryRestart("dauerhafter Speicher nicht verfuegbar");
 #if FAMILY_LOCAL_DEMO_MODE
   makeFallbackManifest();
   Serial.println("Lokaler Demomodus: API-Anfragen sind ausgeschaltet");
@@ -267,17 +282,37 @@ void setup() {
   const String selected = cacheReady ? cache.selectedPageId() : String();
   const int selectedIndex = manifest.find(selected.c_str());
   currentPage = selectedIndex >= 0 ? static_cast<uint8_t>(selectedIndex) : 0;
-  if (!display.begin(framebuffer, framebufferMutex)) Serial.println("Schwerer Fehler: Bildschirm-Task konnte nicht gestartet werden");
+  if (!display.begin(framebuffer, framebufferMutex)) {
+    Serial.println("Schwerer Fehler: Bildschirm-Task konnte nicht gestartet werden");
+    scheduleRecoveryRestart("Bildschirm-Task fehlt");
+  }
   composeCurrentPage(true);
-  if (cacheReady && network.begin(&cache)) {
+  networkTaskReady = cacheReady && network.begin(&cache);
+  if (networkTaskReady) {
     if (!FAMILY_LOCAL_DEMO_MODE) network.requestSync();
   }
   else if (!cacheReady) Serial.println("Netzwerk ausgeschaltet, weil der dauerhafte Speicher nicht verfuegbar ist");
-  else Serial.println("Schwerer Fehler: Netzwerk-Task konnte nicht gestartet werden");
+  else {
+    Serial.println("Schwerer Fehler: Netzwerk-Task konnte nicht gestartet werden");
+    scheduleRecoveryRestart("Netzwerk-Task fehlt");
+  }
   observedManifestGeneration = network.manifestGeneration();
+  // The Arduino loop task is normally extremely short. A five-second stall is
+  // therefore a real deadlock and the framework watchdog safely reboots it.
+  enableLoopWDT();
 }
 
 void loop() {
+  const uint32_t now = millis();
+  if (recoveryRestartAt != 0 && deadlineReached(now, recoveryRestartAt)) {
+    Serial.println("Wiederherstellung: geplanter Neustart wird ausgefuehrt");
+    saveDrawingSnapshot(); delay(100); ESP.restart(); return;
+  }
+  if (networkTaskReady &&
+      now - network.lastProgressMs() >= kNetworkTaskStallRestartMs) {
+    Serial.println("Wiederherstellung: Netzwerk-Task reagiert nicht; Zeichnung wird gespeichert und das Geraet neu gestartet");
+    saveDrawingSnapshot(); delay(100); ESP.restart(); return;
+  }
   TouchFrame frame{}; if (touch.poll(frame)) processTouch(frame);
   if (clearButton.pressedEvent()) handleClear();
   if (pageButton.pressedEvent()) {
