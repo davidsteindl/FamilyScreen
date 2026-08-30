@@ -110,11 +110,6 @@ export const messages = pgTable(
   (table) => [
     index("messages_recipient_cursor_idx").on(table.recipientUserId, table.id),
     index("messages_sender_cursor_idx").on(table.senderUserId, table.id),
-    unique("messages_device_idempotency_recipient_unique").on(
-      table.sourceDeviceId,
-      table.idempotencyKey,
-      table.recipientUserId,
-    ),
   ],
 );
 

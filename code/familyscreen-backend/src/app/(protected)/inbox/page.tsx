@@ -16,6 +16,11 @@ export default async function InboxPage() {
 
   const message = await latestDeviceMessageFor(session.user.id);
 
+  // An all-white page is what the clear button leaves behind. Read it off the
+  // bytes rather than against a stored hash: the blank is whatever the canvas
+  // looks like when nothing is drawn on it.
+  const cleared = message?.bitmap.every((byte) => byte === 0xff) ?? false;
+
   return (
     <main className="flex-1 p-8">
       <h1 className="mb-6 text-lg font-medium">Inbox</h1>
@@ -30,10 +35,15 @@ export default async function InboxPage() {
         </p>
       ) : (
         <>
-          <p className="mb-4 text-sm text-neutral-500">
-            From {message.senderName} · {formatDayHeading(message.createdAt)},{" "}
-            {formatTime(message.createdAt)}
-          </p>
+          <div className="mb-4 text-sm text-neutral-500">
+            <p>
+              From {message.senderName} · {formatDayHeading(message.createdAt)},{" "}
+              {formatTime(message.createdAt)}
+            </p>
+
+            {/* Without this the empty canvas below reads as a failed load. */}
+            {cleared && <p>{message.senderName} cleared the screen.</p>}
+          </div>
 
           {/* The stored bytes are the uploaded bytes, and the canvas is the same
               800x440 the device draws on, so this is the screen's own picture. */}

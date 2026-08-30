@@ -1,0 +1,1 @@
+ALTER TABLE "messages" DROP CONSTRAINT "messages_device_idempotency_recipient_unique";

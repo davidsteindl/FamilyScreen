@@ -94,7 +94,14 @@ export async function insertMessage(
 /**
  * A drawing uploaded by a physical screen goes to every contact at once: the
  * device has no recipient picker, so drawing on it means showing the family.
- * The unique index on (device, key, recipient) makes a retried upload a no-op.
+ *
+ * The screen uploads its current state, not an event, so the same bytes arrive
+ * both from a retried upload and from a genuine repeat — clearing the screen
+ * always produces the identical blank bitmap. Deduplicating on the content hash
+ * alone therefore swallowed every clear after the first. What separates the two
+ * is what came before: a retry repeats the state already stored, a repeat
+ * follows something else. So a recipient is skipped only while the newest row
+ * this device wrote for them already carries this hash.
  */
 export async function storeDeviceBroadcast({
   deviceId,
@@ -115,10 +122,35 @@ export async function storeDeviceBroadcast({
     return { recipientCount: 0, insertedCount: 0 };
   }
 
+  // DISTINCT ON needs its column to lead the ordering; the id then picks the
+  // newest row within each recipient.
+  const newest = await db
+    .selectDistinctOn([messages.recipientUserId], {
+      recipientUserId: messages.recipientUserId,
+      contentSha256: messages.contentSha256,
+    })
+    .from(messages)
+    .where(eq(messages.sourceDeviceId, deviceId))
+    .orderBy(messages.recipientUserId, desc(messages.id));
+
+  const unchanged = new Set(
+    newest
+      .filter((row) => row.contentSha256 === contentSha256)
+      .map((row) => row.recipientUserId),
+  );
+
+  const pending = recipients.filter(
+    (recipient) => !unchanged.has(recipient.userId),
+  );
+
+  if (pending.length === 0) {
+    return { recipientCount: recipients.length, insertedCount: 0 };
+  }
+
   const inserted = await db
     .insert(messages)
     .values(
-      recipients.map((recipient) => ({
+      pending.map((recipient) => ({
         senderUserId,
         recipientUserId: recipient.userId,
         bitmapData: toBytea(bitmapData),
@@ -127,13 +159,6 @@ export async function storeDeviceBroadcast({
         idempotencyKey,
       })),
     )
-    .onConflictDoNothing({
-      target: [
-        messages.sourceDeviceId,
-        messages.idempotencyKey,
-        messages.recipientUserId,
-      ],
-    })
     .returning({ id: messages.id });
 
   return {
