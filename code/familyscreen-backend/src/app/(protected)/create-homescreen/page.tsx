@@ -1,6 +1,6 @@
 import { BitmapCanvas } from "@/components/bitmap-canvas";
-import { toBase64 } from "@/lib/bitmap";
-import { renderHome } from "@/lib/pages";
+import { toBase64 } from "@/lib/screen/bitmap";
+import { renderHome } from "@/lib/screen/pages";
 
 export default async function CreateHomescreenPage() {
   // The call the device endpoint makes, so the preview is the bytes it ships.

@@ -1,6 +1,6 @@
 import requireDevice from "@/lib/auth/require-device";
-import { BITMAP_HEIGHT, BITMAP_WIDTH, toBase64 } from "@/lib/bitmap";
-import { getPages } from "@/lib/pages";
+import { BITMAP_HEIGHT, BITMAP_WIDTH, toBase64 } from "@/lib/screen/bitmap";
+import { getPages } from "@/lib/screen/pages";
 
 export const runtime = "nodejs";
 

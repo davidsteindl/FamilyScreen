@@ -1,7 +1,7 @@
-import { getContacts } from "./contacts";
+import { getContacts } from "../contacts";
 import { renderHomescreen } from "./homescreen";
 import { renderTestBitmap } from "./test-bitmap";
-import { getWeather, OTTENSCHLAG, WIEN } from "./weather";
+import { getWeather, OTTENSCHLAG, WIEN } from "../content/weather";
 
 export type PageMeta = {
   type: "home" | "user";

@@ -1,5 +1,5 @@
 import requireDevice from "@/lib/auth/require-device";
-import { getPages } from "@/lib/pages";
+import { getPages } from "@/lib/screen/pages";
 
 export const runtime = "nodejs";
 
