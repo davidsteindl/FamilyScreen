@@ -58,14 +58,9 @@ void EpdDisplay::taskLoop() {
 
 bool EpdDisplay::execute(const Command& command) {
   for (uint8_t attempt = 0; attempt < 2; ++attempt) {
-    bool ok;
-    if (command.type == CommandType::Full || partialCount_ >= kPartialRefreshLimit) {
-      ok = fullRefresh();
-      if (ok) partialCount_ = 0;
-    } else {
-      ok = partialRefresh(command.rect);
-      if (ok) ++partialCount_;
-    }
+    const bool ok = command.type == CommandType::Full
+                        ? fullRefresh()
+                        : partialRefresh(command.rect);
     if (ok) return true;
     Serial.println("EPD: Zeitueberschreitung, Controller wird neu gestartet");
     hardwareReset();

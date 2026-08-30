@@ -47,7 +47,6 @@ constexpr uint32_t kNetworkTaskStallRestartMs = 2UL * 60UL * 1000UL;
 constexpr uint32_t kButtonDebounceMs = 45;
 // Radius 1 ergibt einen kompakten, etwa drei Pixel breiten Stiftstrich.
 constexpr uint8_t kBrushRadius = 1;
-constexpr uint8_t kPartialRefreshLimit = 20;
 
 // The UC8179 DDX setting is configured so its monochrome RAM uses the public
 // bitmap format directly (1=white, 0=black) in full and partial modes.
