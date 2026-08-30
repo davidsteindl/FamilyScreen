@@ -1,7 +1,7 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { messages } from "@/db/schema";
+import { messages, users } from "@/db/schema";
 import { getContacts } from "@/lib/contacts";
 import { BITMAP_BYTES } from "@/lib/screen/bitmap";
 
@@ -14,6 +14,17 @@ import { BITMAP_BYTES } from "@/lib/screen/bitmap";
  */
 function toBytea(bytes: Uint8Array) {
   return sql`decode(${Buffer.from(bytes).toString("hex")}, 'hex')`;
+}
+
+/**
+ * Rows stored before the screen grew to 440 rows are the wrong length, and the
+ * firmware rejects a short page rather than drawing it. Treat them as absent.
+ * The driver hands back a Buffer; the renderers speak Uint8Array.
+ */
+function toBitmap(bitmapData: Buffer | null | undefined) {
+  return bitmapData?.byteLength === BITMAP_BYTES
+    ? Uint8Array.from(bitmapData)
+    : null;
 }
 
 /** The newest message this sender wrote to this recipient, as the device shows it. */
@@ -33,14 +44,37 @@ export async function latestMessageFor(
     .orderBy(desc(messages.id))
     .limit(1);
 
-  // Rows stored before the screen grew to 440 rows are the wrong length, and the
-  // firmware rejects a short page rather than drawing it. Treat them as absent.
-  if (row?.bitmapData?.byteLength !== BITMAP_BYTES) {
-    return null;
-  }
+  return toBitmap(row?.bitmapData);
+}
 
-  // The driver hands back a Buffer; the renderers speak Uint8Array.
-  return Uint8Array.from(row.bitmapData);
+/**
+ * The newest drawing a physical screen uploaded to this recipient, byte for byte
+ * as it left the device: the 800x440 content area, without the label header the
+ * firmware draws on top of it locally.
+ */
+export async function latestDeviceMessageFor(recipientUserId: string) {
+  const [row] = await db
+    .select({
+      bitmapData: messages.bitmapData,
+      senderName: users.name,
+      createdAt: messages.createdAt,
+    })
+    .from(messages)
+    .innerJoin(users, eq(users.id, messages.senderUserId))
+    .where(
+      and(
+        eq(messages.recipientUserId, recipientUserId),
+        isNotNull(messages.sourceDeviceId),
+      ),
+    )
+    .orderBy(desc(messages.id))
+    .limit(1);
+
+  const bitmap = toBitmap(row?.bitmapData);
+
+  return bitmap
+    ? { bitmap, senderName: row.senderName, createdAt: row.createdAt }
+    : null;
 }
 
 export async function insertMessage(
