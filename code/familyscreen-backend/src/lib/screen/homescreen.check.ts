@@ -2,12 +2,13 @@
 import assert from "node:assert/strict";
 
 import {
-  civilDate,
   formatDayHeading,
   formatTime,
+  local,
   monthGrid,
   WEEKDAY_LABELS,
 } from "../content/calendar";
+import { eventsOn } from "../content/events";
 import { quoteOfTheDay } from "../content/quote";
 import type { Weather } from "../content/weather";
 import {
@@ -128,8 +129,8 @@ assert.equal(rgba[0], 255);
 //
 
 // The server runs in UTC, the screen shows Vienna: 23:30Z in August is tomorrow.
-assert.equal(civilDate(new Date("2026-08-30T21:00:00Z")).day, 30);
-assert.equal(civilDate(new Date("2026-08-30T23:30:00Z")).day, 31);
+assert.equal(local(new Date("2026-08-30T21:00:00Z")).day, 30);
+assert.equal(local(new Date("2026-08-30T23:30:00Z")).day, 31);
 assert.equal(formatTime(new Date("2026-08-30T21:00:00Z")), "23:00");
 
 const heading = formatDayHeading(new Date("2026-08-30T10:00:00Z"));
@@ -151,6 +152,74 @@ assert.deepEqual(
 assert.equal(grid.weeks[0][5], 1); // 1 August 2026 is a Saturday
 assert.equal(grid.weeks[0][4], null);
 assert.equal(grid.today, 30);
+
+//
+// EVENTS
+//
+
+// One fixture covering every shape the day cell has to survive.
+const FIXTURE = [
+  "BEGIN:VCALENDAR",
+  "VERSION:2.0",
+  "BEGIN:VEVENT",
+  "UID:allday",
+  "DTSTART;VALUE=DATE:20260830",
+  "DTEND;VALUE=DATE:20260831",
+  "SUMMARY:Geburtstag Oma",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:span",
+  "DTSTART;VALUE=DATE:20260829",
+  "DTEND;VALUE=DATE:20260901",
+  "SUMMARY:Urlaub",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:timed",
+  "DTSTART;TZID=Europe/Vienna:20260830T153000",
+  "DTEND;TZID=Europe/Vienna:20260830T163000",
+  "SUMMARY:Kaffee",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:early",
+  "DTSTART;TZID=Europe/Vienna:20260830T090000",
+  "DTEND;TZID=Europe/Vienna:20260830T093000",
+  "SUMMARY:Arzt",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:other-day",
+  "DTSTART;TZID=Europe/Vienna:20260831T090000",
+  "DTEND;TZID=Europe/Vienna:20260831T093000",
+  "SUMMARY:Morgen",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:weekly",
+  "DTSTART;TZID=Europe/Vienna:20260803T080000",
+  "DTEND;TZID=Europe/Vienna:20260803T083000",
+  "RRULE:FREQ=WEEKLY;BYDAY=MO",
+  "EXDATE;TZID=Europe/Vienna:20260817T080000",
+  "SUMMARY:Wochenmarkt",
+  "END:VEVENT",
+  "END:VCALENDAR",
+].join("\r\n");
+
+// All day first, then by time; the next day's entry stays out.
+assert.deepEqual(eventsOn(FIXTURE, new Date("2026-08-30T10:00:00Z")), [
+  "Geburtstag Oma",
+  "Urlaub",
+  "09:00 Arzt",
+  "15:30 Kaffee",
+]);
+
+// A recurring event shows up on its weekday.
+assert.deepEqual(eventsOn(FIXTURE, new Date("2026-08-24T10:00:00Z")), [
+  "08:00 Wochenmarkt",
+]);
+
+// ...but not on the date its EXDATE excludes.
+assert.deepEqual(eventsOn(FIXTURE, new Date("2026-08-17T10:00:00Z")), []);
+
+// A day with nothing on it is empty, not an error.
+assert.deepEqual(eventsOn(FIXTURE, new Date("2026-08-19T10:00:00Z")), []);
 
 //
 // QUOTE

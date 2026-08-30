@@ -1,66 +1,35 @@
+import { DateTime, Info } from "luxon";
+
 export const TIME_ZONE = "Europe/Vienna";
+const LOCALE = "de-AT";
+
+/** The instant as it reads in Vienna, which is what the screen shows. */
+export function local(date: Date) {
+  return DateTime.fromJSDate(date, { zone: TIME_ZONE }).setLocale(LOCALE);
+}
 
 /** Monday first, the way a German wall calendar reads. */
-export const WEEKDAY_LABELS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-
-function parts(date: Date, options: Intl.DateTimeFormatOptions) {
-  const formatted = new Intl.DateTimeFormat("de-AT", {
-    timeZone: TIME_ZONE,
-    ...options,
-  }).formatToParts(date);
-
-  return (type: Intl.DateTimeFormatPartTypes) =>
-    formatted.find((part) => part.type === type)?.value ?? "";
-}
-
-/** The calendar date in Vienna, which is what the screen shows — the server runs in UTC. */
-export function civilDate(date: Date) {
-  const value = parts(date, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-
-  return {
-    year: Number(value("year")),
-    month: Number(value("month")),
-    day: Number(value("day")),
-  };
-}
+export const WEEKDAY_LABELS = Info.weekdays("short", { locale: LOCALE });
 
 export function formatTime(date: Date) {
-  const value = parts(date, {
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
-
-  return `${value("hour")}:${value("minute")}`;
+  return local(date).toFormat("HH:mm");
 }
 
 export function formatDayHeading(date: Date) {
-  const value = parts(date, {
-    weekday: "short",
-    day: "numeric",
-    month: "long",
-  });
-
-  return `${value("weekday").replace(".", "")} ${value("day")}. ${value("month")}`;
+  return local(date).toFormat("ccc d. LLLL");
 }
 
 /**
  * The month as calendar rows, Monday first, padded with nulls so every week has
- * seven cells. UTC arithmetic on the Vienna calendar date keeps it timezone-safe.
+ * seven cells.
  */
 export function monthGrid(date: Date) {
-  const { year, month, day } = civilDate(date);
-
-  const lead = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
-  const length = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const today = local(date);
+  const first = today.startOf("month");
 
   const cells: (number | null)[] = [
-    ...Array<null>(lead).fill(null),
-    ...Array.from({ length }, (_, index) => index + 1),
+    ...Array<null>(first.weekday - 1).fill(null),
+    ...Array.from({ length: first.daysInMonth ?? 0 }, (_, index) => index + 1),
   ];
 
   while (cells.length % 7 !== 0) {
@@ -73,5 +42,5 @@ export function monthGrid(date: Date) {
     weeks.push(cells.slice(index, index + 7));
   }
 
-  return { weeks, today: day };
+  return { weeks, today: today.day };
 }

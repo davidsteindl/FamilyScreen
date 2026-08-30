@@ -1,6 +1,7 @@
 import { getContacts } from "../contacts";
 import { renderHomescreen } from "./homescreen";
 import { renderTestBitmap } from "./test-bitmap";
+import { getEvents } from "../content/events";
 import { getWeather, OTTENSCHLAG, WIEN } from "../content/weather";
 
 export type PageMeta = {
@@ -20,19 +21,17 @@ export type Page = {
  * read one alike, all of it more work than drawing the 40 kB again.
  */
 export async function renderHome() {
-  const [primary, secondary] = await Promise.all([
+  // The render moment is the poll moment, which is what the header stamps.
+  const renderedAt = new Date();
+
+  const [primary, secondary, events] = await Promise.all([
     getWeather(OTTENSCHLAG),
     getWeather(WIEN),
+    // The calendar is optional: without it the day cell shows its empty state.
+    getEvents(renderedAt).catch(() => []),
   ]);
 
-  // The render moment is the poll moment, which is what the header stamps.
-  return renderHomescreen({
-    renderedAt: new Date(),
-    primary,
-    secondary,
-    // No calendar source yet; the day cell shows its empty state until there is one.
-    events: [],
-  });
+  return renderHomescreen({ renderedAt, primary, secondary, events });
 }
 
 /** The pages a device shows, in order. A new page type is one more entry here. */
