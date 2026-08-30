@@ -1,6 +1,6 @@
 import requireDevice from "@/lib/auth/require-device";
-import { getContacts } from "@/lib/contacts";
-import { renderTestBitmap, BITMAP_WIDTH, BITMAP_HEIGHT } from "@/lib/test-bitmap";
+import { BITMAP_HEIGHT, BITMAP_WIDTH, toBase64 } from "@/lib/bitmap";
+import { getPages } from "@/lib/pages";
 
 export const runtime = "nodejs";
 
@@ -11,16 +11,14 @@ export async function GET(req: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const others = await getContacts(device.userId);
-
-  const pages = [
-    { type: "home" as const, name: device.userName },
-    ...others.map((user) => ({
-      type: "user" as const,
-      ...user,
-      bitmap: renderTestBitmap(user.name).toString("base64"),
+  const pages = await Promise.all(
+    (await getPages(device.userId, device.userName)).map(async (page) => ({
+      ...page.meta,
+      // A page that cannot render is sent without one instead of failing the
+      // whole payload; the device keeps showing its last image for that page.
+      bitmap: await page.render().then(toBase64, () => undefined),
     })),
-  ];
+  );
 
   return Response.json(
     {
