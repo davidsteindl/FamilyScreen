@@ -13,7 +13,6 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@base-ui/react": "^1.7.0",
     "@neondatabase/serverless": "^1.1.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
