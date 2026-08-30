@@ -27,14 +27,19 @@ bool TouchController::begin() {
 
 bool TouchController::poll(TouchFrame& frame) {
   if (digitalRead(kTouchIrqPin) != LOW) return false;
-  uint8_t data[1 + 8 * 5] = {};
-  if (gt910_read_reg(GTP_READ_COOR_ADDR, sizeof(data), data) != SUCCESS) return false;
-  const uint8_t status = data[0];
+  uint8_t status = 0;
+  if (gt910_read_reg(GTP_READ_COOR_ADDR, 1, &status) != SUCCESS) return false;
   if ((status & 0x80) == 0) return false;
   frame.count = status & 0x0F;
   if (frame.count > 5) frame.count = 0;
+  uint8_t data[8 * 5] = {};
+  if (frame.count &&
+      gt910_read_reg(GTP_READ_COOR_ADDR + 1, frame.count * 8, data) != SUCCESS) {
+    uint8_t clear = 0; gt910_write_reg(GTP_READ_COOR_ADDR, 1, &clear);
+    return false;
+  }
   for (uint8_t i = 0; i < frame.count; ++i) {
-    const uint8_t offset = 1 + i * 8;
+    const uint8_t offset = i * 8;
     const uint16_t rawX = data[offset + 1] | (static_cast<uint16_t>(data[offset + 2]) << 8);
     const uint16_t rawY = data[offset + 3] | (static_cast<uint16_t>(data[offset + 4]) << 8);
     frame.contacts[i].id = data[offset] & 0x0F;

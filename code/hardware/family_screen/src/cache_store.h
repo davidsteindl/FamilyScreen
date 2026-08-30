@@ -22,6 +22,7 @@ class CacheStore {
   String selectedPageId();
   void saveSelectedPageId(const char* pageId);
 
+  void discardDrawing(const char* pageId);
   bool snapshotDrawing(const char* pageId, const uint8_t* framebuffer, char outHash[65]);
   bool firstOutbox(String& path, char hash[65]);
   bool hasOutbox();

@@ -38,7 +38,7 @@ bool CacheStore::begin() {
 }
 
 bool CacheStore::validId(const char* id) {
-  if (!id || !*id || strlen(id) > 32) return false;
+  if (!id || !*id || strlen(id) > 64) return false;
   for (const char* p = id; *p; ++p) {
     if (!(isalnum(static_cast<unsigned char>(*p)) || *p == '-' || *p == '_')) return false;
   }
@@ -215,7 +215,12 @@ bool CacheStore::hashFile(const String& path, char hash[65]) {
 bool CacheStore::storeContent(const char* pageId, Stream& stream, const char* expectedSha256) {
   if (!ready_) return false;
   if (!validId(pageId) || !validHash(expectedSha256)) return false;
-  if (LittleFS.totalBytes() - LittleFS.usedBytes() < kContentBytes + 4096) return false;
+  const size_t freeBytes = LittleFS.totalBytes() - LittleFS.usedBytes();
+  if (freeBytes < kContentBytes + kStorageSafetyReserveBytes) {
+    Serial.printf("Speicher: Seite %s wird nicht geladen; %u Bytes Reserve bleiben geschuetzt\n",
+                  pageId, static_cast<unsigned>(kStorageSafetyReserveBytes));
+    return false;
+  }
   const String temporary = String("/pages/.") + pageId + ".tmp";
   LittleFS.remove(temporary);
   File file = LittleFS.open(temporary, FILE_WRITE); if (!file) return false;
@@ -260,31 +265,88 @@ void CacheStore::cleanPagesNotIn(const PageManifest& manifest) {
 String CacheStore::selectedPageId() { return ready_ ? preferences_.getString("page", "") : String(); }
 void CacheStore::saveSelectedPageId(const char* pageId) { if (ready_ && pageId) preferences_.putString("page", pageId); }
 
+void CacheStore::discardDrawing(const char* pageId) {
+  if (!ready_ || !validId(pageId)) return;
+  if (xSemaphoreTake(mutex_, pdMS_TO_TICKS(1000)) != pdTRUE) return;
+  LittleFS.remove(pagePath(pageId));
+  LittleFS.remove(String("/pages/.") + pageId + ".draw.tmp");
+  LittleFS.remove("/outbox/new.tmp");
+  File directory = LittleFS.open("/outbox");
+  if (directory && directory.isDirectory()) {
+    File file = directory.openNextFile();
+    while (file) {
+      const String name = file.name(); file.close();
+      if (name.endsWith(".bin")) LittleFS.remove(name);
+      file = directory.openNextFile();
+    }
+    directory.close();
+  }
+  xSemaphoreGive(mutex_);
+  Serial.println("Speicher: die vorherige Zeichnung wurde endgueltig entfernt");
+}
+
 bool CacheStore::snapshotDrawing(const char* pageId, const uint8_t* framebuffer, char outHash[65]) {
   if (!ready_) return false;
-  if (!validId(pageId) || !framebuffer) return false;
+  if (!validId(pageId) || !framebuffer || !outHash) return false;
   const String pageTemporary = String("/pages/.") + pageId + ".draw.tmp";
   const String outTemporary = "/outbox/new.tmp";
   LittleFS.remove(pageTemporary); LittleFS.remove(outTemporary);
-  File page = LittleFS.open(pageTemporary, FILE_WRITE); File out = LittleFS.open(outTemporary, FILE_WRITE);
-  if (!page || !out) { if (page) page.close(); if (out) out.close(); return false; }
+  if (LittleFS.totalBytes() - LittleFS.usedBytes() < kContentBytes + 4096) {
+    Serial.println("Speicher: fuer die Zeichnung ist gerade nicht genug Platz frei");
+    return false;
+  }
+
+  // Commit the local page first, then create its upload copy. Writing both
+  // 44 KB temporary files at once can exhaust LittleFS and leave the previous
+  // drawing cached, which makes cleared ink return after page wraparound.
+  File page = LittleFS.open(pageTemporary, FILE_WRITE);
+  if (!page) return false;
   mbedtls_sha256_context context; mbedtls_sha256_init(&context); mbedtls_sha256_starts_ret(&context, 0);
   const uint8_t* content = framebuffer + kHeaderHeight * kBytesPerRow;
   bool ok = true;
   for (size_t offset = 0; offset < kContentBytes; offset += 512) {
     const size_t count = min(static_cast<size_t>(512), kContentBytes - offset);
-    if (page.write(content + offset, count) != count || out.write(content + offset, count) != count) { ok = false; break; }
+    if (page.write(content + offset, count) != count) { ok = false; break; }
     mbedtls_sha256_update_ret(&context, content + offset, count);
   }
-  page.flush(); out.flush(); page.close(); out.close();
+  page.flush(); page.close();
   uint8_t digest[32]; mbedtls_sha256_finish_ret(&context, digest); mbedtls_sha256_free(&context); hashToHex(digest, outHash);
-  if (!ok) { LittleFS.remove(pageTemporary); LittleFS.remove(outTemporary); return false; }
-  const String outPath = String("/outbox/") + outHash + ".bin";
-  if (xSemaphoreTake(mutex_, pdMS_TO_TICKS(1000)) != pdTRUE) return false;
+  if (!ok) { LittleFS.remove(pageTemporary); return false; }
+
+  if (xSemaphoreTake(mutex_, pdMS_TO_TICKS(1000)) != pdTRUE) {
+    LittleFS.remove(pageTemporary); return false;
+  }
   ok = replaceFile(pageTemporary, pagePath(pageId));
-  if (ok) { if (LittleFS.exists(outPath)) LittleFS.remove(outTemporary); else ok = LittleFS.rename(outTemporary, outPath); }
   xSemaphoreGive(mutex_);
   if (!ok) return false;
+
+  const String outPath = String("/outbox/") + outHash + ".bin";
+  if (!LittleFS.exists(outPath)) {
+    File source = LittleFS.open(pagePath(pageId), FILE_READ);
+    File out = LittleFS.open(outTemporary, FILE_WRITE);
+    if (!source || !out) {
+      if (source) source.close();
+      if (out) out.close();
+      LittleFS.remove(outTemporary);
+      return false;
+    }
+    uint8_t buffer[512]; size_t total = 0;
+    while (total < kContentBytes) {
+      const size_t wanted = min(sizeof(buffer), kContentBytes - total);
+      const size_t count = source.read(buffer, wanted);
+      if (count == 0 || out.write(buffer, count) != count) { ok = false; break; }
+      total += count;
+    }
+    source.close(); out.flush(); out.close();
+    if (!ok || total != kContentBytes) { LittleFS.remove(outTemporary); return false; }
+    if (xSemaphoreTake(mutex_, pdMS_TO_TICKS(1000)) != pdTRUE) {
+      LittleFS.remove(outTemporary); return false;
+    }
+    if (LittleFS.exists(outPath)) LittleFS.remove(outTemporary);
+    else ok = LittleFS.rename(outTemporary, outPath);
+    xSemaphoreGive(mutex_);
+    if (!ok) { LittleFS.remove(outTemporary); return false; }
+  }
 
   File directory = LittleFS.open("/outbox"); File file = directory.openNextFile();
   while (file) { String name = file.name(); file.close(); if (name.endsWith(".bin") && name != outPath) LittleFS.remove(name); file = directory.openNextFile(); }

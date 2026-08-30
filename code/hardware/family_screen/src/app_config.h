@@ -12,6 +12,9 @@ constexpr uint16_t kContentHeight = kDisplayHeight - kHeaderHeight;
 constexpr size_t kBytesPerRow = kDisplayWidth / 8;
 constexpr size_t kFramebufferBytes = kBytesPerRow * kDisplayHeight;
 constexpr size_t kContentBytes = kBytesPerRow * kContentHeight;
+// Keep enough LittleFS headroom for an atomic page replacement and the
+// drawing upload copy. Read-only downloads stop before consuming this reserve.
+constexpr size_t kStorageSafetyReserveBytes = 2 * kContentBytes + 16 * 1024;
 constexpr uint8_t kMaximumPages = 24;
 constexpr const char kLocalDrawingPageId[] = "ottola";
 constexpr const char kLocalDrawingPageLabel[] = "Ottola";

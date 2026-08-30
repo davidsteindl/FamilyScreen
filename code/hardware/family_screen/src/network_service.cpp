@@ -2,6 +2,7 @@
 
 #include <LittleFS.h>
 #include <WiFi.h>
+#include <time.h>
 #include "app_config.h"
 #include "secrets_config.h"
 
@@ -18,10 +19,39 @@ void NetworkService::taskEntry(void* context) { static_cast<NetworkService*>(con
 
 bool NetworkService::configurationValid() const {
   if (FAMILY_LOCAL_DEMO_MODE) return false;
-  if (!FAMILY_WIFI_SSID[0] || !FAMILY_API_BASE_URL[0] || !FAMILY_DEVICE_ID[0]) return false;
+  if (!FAMILY_WIFI_SSID[0] || !FAMILY_API_BASE_URL[0]) return false;
   const String base(FAMILY_API_BASE_URL);
-  if (base.startsWith("https://")) return FAMILY_API_CA_CERT[0] != '\0';
+  if (base.startsWith("https://")) return FAMILY_API_CA_CERT[0] != '\0' || FAMILY_ALLOW_INSECURE_HTTPS;
   return FAMILY_ALLOW_INSECURE_HTTP && base.startsWith("http://");
+}
+
+bool NetworkService::ensureClock() {
+  const String base(FAMILY_API_BASE_URL);
+  if (!base.startsWith("https://") || FAMILY_ALLOW_INSECURE_HTTPS) return true;
+
+  constexpr time_t kEarliestSaneTime = 1704067200;  // 2024-01-01 UTC
+  if (time(nullptr) >= kEarliestSaneTime) return true;
+
+  const uint32_t now = millis();
+  if (clockRetryAt_ != 0 && static_cast<int32_t>(now - clockRetryAt_) < 0) return false;
+  if (!clockConfigured_) {
+    configTime(0, 0, "pool.ntp.org", "time.google.com", "time.cloudflare.com");
+    clockConfigured_ = true;
+  }
+
+  Serial.println("Netzwerk: sichere Uhrzeit wird eingestellt");
+  const uint32_t deadline = millis() + 10000;
+  while (time(nullptr) < kEarliestSaneTime && static_cast<int32_t>(millis() - deadline) < 0) {
+    vTaskDelay(pdMS_TO_TICKS(250));
+  }
+  if (time(nullptr) >= kEarliestSaneTime) {
+    Serial.println("Netzwerk: sichere Verbindung ist vorbereitet");
+    return true;
+  }
+
+  Serial.println("Netzwerk: Uhrzeit fehlt noch; die gespeicherten Seiten bleiben bereit");
+  clockRetryAt_ = millis() + 30000;
+  return false;
 }
 
 void NetworkService::ensureWifi() {
@@ -36,10 +66,16 @@ void NetworkService::ensureWifi() {
   }
 }
 
-String NetworkService::apiUrl(const String& suffix) const {
+String NetworkService::metadataUrl() const {
   String base(FAMILY_API_BASE_URL);
   while (base.endsWith("/")) base.remove(base.length() - 1);
-  return base + "/v1/devices/" + FAMILY_DEVICE_ID + suffix;
+  return base + "/device/metadata";
+}
+
+String NetworkService::pageBitmapUrl(const char* pageId) const {
+  String base(FAMILY_API_BASE_URL);
+  while (base.endsWith("/")) base.remove(base.length() - 1);
+  return base + "/device/pages/" + pageId + "/bitmap";
 }
 
 bool NetworkService::beginRequest(HTTPClient& http, WiFiClient& plain,
@@ -47,7 +83,9 @@ bool NetworkService::beginRequest(HTTPClient& http, WiFiClient& plain,
   http.setConnectTimeout(8000);
   http.setTimeout(15000);
   if (url.startsWith("https://")) {
-    secure.setCACert(FAMILY_API_CA_CERT);
+    if (FAMILY_API_CA_CERT[0]) secure.setCACert(FAMILY_API_CA_CERT);
+    else if (FAMILY_ALLOW_INSECURE_HTTPS) secure.setInsecure();
+    else return false;
     return http.begin(secure, url);
   }
   if (FAMILY_ALLOW_INSECURE_HTTP && url.startsWith("http://")) return http.begin(plain, url);
@@ -68,6 +106,7 @@ void NetworkService::taskLoop() {
     const bool requested = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000)) > 0;
     ensureWifi();
     if (!configurationValid() || WiFi.status() != WL_CONNECTED) continue;
+    if (!ensureClock()) continue;
     const uint32_t now = millis();
 
     if (cache_->hasOutbox() && static_cast<int32_t>(now - retryAt) >= 0) {
@@ -87,7 +126,7 @@ bool NetworkService::synchronizeManifest() {
   PageManifest& oldManifest = manifestScratch_;
   cache_->loadManifest(oldManifest);
   WiFiClient plain; WiFiClientSecure secure; HTTPClient http;
-  const String url = apiUrl("/pages");
+  const String url = metadataUrl();
   if (!beginRequest(http, plain, secure, url)) return false;
   const char* responseHeaders[] = {"ETag"};
   http.collectHeaders(responseHeaders, 1);
@@ -104,7 +143,11 @@ bool NetworkService::synchronizeManifest() {
     }
     return true;
   }
-  if (status != HTTP_CODE_OK) { Serial.printf("Netzwerk: Seitenliste meldet HTTP %d\n", status); http.end(); return false; }
+  if (status != HTTP_CODE_OK) {
+    Serial.printf("Netzwerk: Seitenliste meldet HTTP %d (%s)\n", status,
+                  HTTPClient::errorToString(status).c_str());
+    http.end(); return false;
+  }
   const String body = http.getString();
   const String etag = http.header("ETag");
   http.end();
@@ -112,6 +155,9 @@ bool NetworkService::synchronizeManifest() {
   PageManifest& next = nextManifestScratch_;
   if (!cache_->parseManifest(body, etag.c_str(), next)) { Serial.println("Netzwerk: ungueltige Seitenliste empfangen"); return false; }
 
+  // Removed pages must not occupy the reserve needed for Grandma's drawing.
+  // The visible framebuffer remains intact while replacements download.
+  cache_->cleanPagesNotIn(next);
   for (uint8_t i = 0; i < next.count; ++i) {
     const PageDescriptor& page = next.pages[i];
     if (cache_->contentMatches(page)) continue;
@@ -127,12 +173,14 @@ bool NetworkService::synchronizeManifest() {
 
 bool NetworkService::downloadPage(const PageDescriptor& page) {
   WiFiClient plain; WiFiClientSecure secure; HTTPClient http;
-  const String url = apiUrl(String("/pages/") + page.id + "/bitmap");
+  const String url = pageBitmapUrl(page.id);
   if (!beginRequest(http, plain, secure, url)) return false;
   addAuthorization(http);
   const int status = http.GET();
   if (status != HTTP_CODE_OK || http.getSize() != static_cast<int>(kContentBytes)) {
-    Serial.printf("Netzwerk: Seite %s meldet HTTP=%d, Laenge=%d\n", page.id, status, http.getSize()); http.end(); return false;
+    Serial.printf("Netzwerk: Seite %s meldet HTTP=%d (%s), Laenge=%d\n", page.id, status,
+                  HTTPClient::errorToString(status).c_str(), http.getSize());
+    http.end(); return false;
   }
   WiFiClient* stream = http.getStreamPtr();
   const bool ok = stream && cache_->storeContent(page.id, *stream, page.sha256);
@@ -153,7 +201,7 @@ bool NetworkService::uploadOneDrawing() {
   if (!file || file.size() != kContentBytes) { if (file) file.close(); cache_->removeOutbox(path); return false; }
 
   WiFiClient plain; WiFiClientSecure secure; HTTPClient http;
-  const String url = apiUrl(String("/pages/") + drawingPageId + "/bitmap");
+  const String url = pageBitmapUrl(drawingPageId);
   if (!beginRequest(http, plain, secure, url)) { file.close(); return false; }
   addAuthorization(http);
   http.addHeader("Content-Type", "application/octet-stream");

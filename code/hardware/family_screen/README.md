@@ -4,7 +4,7 @@ Offline-first firmware for the LOLIN32, an 800×480 UC8179 monochrome e-ink pane
 
 ## Configure and build
 
-1. Copy `include/secrets.example.h` to `include/secrets.h` and enter the Wi-Fi, device API, bearer token, and CA-certificate values. The real secrets file is ignored by Git.
+1. Copy `include/secrets.example.h` to `include/secrets.h` and enter the Wi-Fi, API base URL, and bearer token. The real secrets file is ignored by Git. The checked-in ISRG Root X1 certificate validates the current Let's Encrypt API certificate; do not enable insecure HTTPS.
 2. Build with `pio run` and upload with `pio run --target upload`.
 3. Watch the first twenty touch samples at 115200 baud. If the reported screen coordinates do not match the touched corners, set `FAMILY_TOUCH_SWAP_XY`, `FAMILY_TOUCH_MIRROR_X`, or `FAMILY_TOUCH_MIRROR_Y` in `platformio.ini` build flags.
 4. Run host-side logic tests with `pio test -e native`.
@@ -15,9 +15,9 @@ With `FAMILY_LOCAL_DEMO_MODE` set to `1`, no API requests are made. The firmware
 
 ## Device API
 
-All requests use `Authorization: Bearer <device token>` when a token is configured.
+All requests use `Authorization: Bearer <device token>` when a token is configured. The token identifies the device, so the device ID does not need to be repeated in each URL.
 
-`GET /v1/devices/{deviceId}/pages` returns an ordered manifest and supports `If-None-Match`/`ETag`:
+`GET /api/device/metadata` returns an ordered manifest and supports `If-None-Match`/`ETag`:
 
 ```json
 {
@@ -41,11 +41,13 @@ All requests use `Authorization: Bearer <device token>` when a token is configur
 }
 ```
 
-The manifest contains 1–23 server-owned pages with unique IDs containing only letters, digits, `_` or `-`. A server-declared `drawing` page is supported for compatibility, but is normally omitted: firmware appends its device-owned `ottola` drawing page after all imported pages.
+The manifest contains 1–23 server-owned pages with unique IDs of at most 64 characters containing only letters, digits, `_` or `-`. A server-declared `drawing` page is supported for compatibility, but is normally omitted: firmware appends its device-owned `ottola` drawing page after all imported pages.
 
-`GET /v1/devices/{deviceId}/pages/{pageId}/bitmap` returns exactly 44,000 bytes as `application/octet-stream`. It is an 800×440 row-major bitmap: the most significant bit is the leftmost pixel, `1` is white, and `0` is black. Firmware adds the 40-pixel label header.
+`GET /api/device/pages/{pageId}/bitmap` returns exactly 44,000 raw bytes as `application/octet-stream`. It is an 800×440 row-major bitmap: the most significant bit is the leftmost pixel, `1` is white, and `0` is black. Firmware adds the 40-pixel label header. Do not base64-encode this response: base64 is larger and the packed binary is already compact.
 
-`PUT /v1/devices/{deviceId}/pages/{drawingPageId}/bitmap` accepts the same payload. The device supplies `X-Content-SHA256` and uses that hash as `Idempotency-Key`. Any 2xx response acknowledges the snapshot; the following manifest request supplies its server revision.
+`PUT /api/device/pages/{drawingPageId}/bitmap` accepts the same payload. The device supplies `X-Content-SHA256` and uses that hash as `Idempotency-Key`. Any 2xx response acknowledges the snapshot; the following manifest request supplies its server revision.
+
+`GET /api/device/full` is a temporary debugging endpoint that embeds base64 bitmaps. Production firmware does not use it.
 
 ## Runtime behavior
 
@@ -53,6 +55,6 @@ The manifest contains 1–23 server-owned pages with unique IDs containing only 
 - New remote content is cached but does not interrupt the currently visible page; it appears on the next visit.
 - Drawing uses the first GT911 contact ID until it lifts and ignores other contacts. Dirty areas refresh after each completed stroke.
 - Drawings are saved/uploaded after five idle seconds or before leaving the page. Failed uploads remain in LittleFS and retry with exponential backoff.
-- Clear affects only the drawing page. Full page changes and every twentieth drawing update use a full refresh to limit ghosting.
+- Clear affects only the drawing page. Clear and normal page changes use fast differential updates; startup and every twentieth differential update use a full cleanup refresh to limit ghosting.
 
-The checked-in hardware profile currently maps the portrait GT911 coordinates to landscape as `screenX = 799 - rawY`, `screenY = rawX`. Full refresh bytes are inverted for this UC8179 panel, while partial refresh bytes use framebuffer polarity directly. The in-memory/API bitmap convention remains `1 = white`, `0 = black`.
+The checked-in hardware profile uses the GT911 landscape coordinates without swapping or mirroring. Full and partial updates use the same in-memory/API bitmap convention: `1 = white`, `0 = black`.

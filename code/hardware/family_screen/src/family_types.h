@@ -9,7 +9,7 @@ namespace family {
 enum class PageKind : uint8_t { ReadOnly, Drawing };
 
 struct PageDescriptor {
-  char id[33] = {};
+  char id[65] = {};
   char label[65] = {};
   char revision[65] = {};
   char sha256[65] = {};

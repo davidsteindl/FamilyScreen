@@ -221,6 +221,9 @@ void handleClear() {
   xSemaphoreTake(framebufferMutex, portMAX_DELAY);
   canvas.clearContentWhite(); canvas.drawHeader(manifest.pages[currentPage].label);
   xSemaphoreGive(framebufferMutex);
+  // Clear is authoritative: an older cached bitmap or queued upload must never
+  // be able to restore text Grandma explicitly removed.
+  cache.discardDrawing(manifest.pages[currentPage].id);
   pendingInkBounds.reset(); drawingDirty = true; drawingChangedAt = millis();
   const Rect content{0, kHeaderHeight, kDisplayWidth, kContentHeight};
   if (display.isIdle()) {
@@ -259,7 +262,7 @@ void setup() {
   Serial.println("Lokaler Demomodus: API-Anfragen sind ausgeschaltet");
 #else
   if (!cacheReady || !cache.loadManifest(manifest)) makeFallbackManifest();
-  else ensureLocalDrawingPageLast(manifest);
+  else { ensureLocalDrawingPageLast(manifest); cache.cleanPagesNotIn(manifest); }
 #endif
   const String selected = cacheReady ? cache.selectedPageId() : String();
   const int selectedIndex = manifest.find(selected.c_str());
