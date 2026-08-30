@@ -39,6 +39,7 @@ class EpdDisplay {
   TaskHandle_t task_ = nullptr;
   volatile bool busy_ = false;
   uint8_t partialCount_ = 0;
+  bool oldPlaneReady_ = false;
   Waveform waveform_ = Waveform::Unknown;
 };
 

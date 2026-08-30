@@ -126,18 +126,26 @@ bool EpdDisplay::initializePartialController() {
 bool EpdDisplay::fullRefresh() {
   if (!initializeFullController()) return false;
   SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
-  writeCommand(0x10);
-  for (size_t i = 0; i < kFramebufferBytes; ++i) writeData(displayByte(0xFF));
-  writeCommand(0x13);
   if (xSemaphoreTake(framebufferMutex_, pdMS_TO_TICKS(250)) != pdTRUE) {
     SPI.endTransaction(); return false;
   }
+  // Seed the old-image plane only once after power-up. Afterwards N2OCP keeps
+  // it synchronized with what is actually on the glass. Overwriting it with
+  // white on every refresh makes black ink reappear during a clear operation.
+  if (!oldPlaneReady_) {
+    writeCommand(0x10);
+    for (size_t i = 0; i < kFramebufferBytes; ++i)
+      writeData(displayByte(static_cast<uint8_t>(~framebuffer_[i])));
+  }
+  writeCommand(0x13);
   for (size_t i = 0; i < kFramebufferBytes; ++i) writeData(displayByte(framebuffer_[i]));
   xSemaphoreGive(framebufferMutex_);
   writeCommand(0x12);
   SPI.endTransaction();
   delay(1);
-  return waitReady(15000);
+  const bool ok = waitReady(15000);
+  if (ok) oldPlaneReady_ = true;
+  return ok;
 }
 
 bool EpdDisplay::partialRefresh(Rect rect) {

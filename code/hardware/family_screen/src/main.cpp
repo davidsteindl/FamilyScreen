@@ -49,7 +49,7 @@ uint32_t observedManifestGeneration = 0;
 bool usingFallbackManifest = false;
 bool pageTransition = false;
 bool pendingPageAdvance = false;
-bool pendingFullRefresh = false;
+bool pendingContentRefresh = false;
 bool strokeActive = false;
 PrimaryTouchTracker touchTracker;
 uint16_t lastTouchX = 0, lastTouchY = 0;
@@ -124,7 +124,7 @@ bool renderLocalDemoContent(const PageDescriptor& page) {
   return false;
 }
 
-void composeCurrentPage() {
+void composeCurrentPage(bool cleanupRefresh = false) {
   if (!manifest.count || currentPage >= manifest.count) return;
   const PageDescriptor& page = manifest.pages[currentPage];
   xSemaphoreTake(framebufferMutex, portMAX_DELAY);
@@ -143,8 +143,9 @@ void composeCurrentPage() {
   xSemaphoreGive(framebufferMutex);
   cache.saveSelectedPageId(page.id);
   strokeBounds.reset(); pendingInkBounds.reset(); strokeActive = false;
-  touchTracker.reset(); pendingFullRefresh = false;
-  pageTransition = display.requestFull();
+  touchTracker.reset(); pendingContentRefresh = false;
+  const Rect wholeScreen{0, 0, kDisplayWidth, kDisplayHeight};
+  pageTransition = cleanupRefresh ? display.requestFull() : display.requestPartial(wholeScreen);
   Serial.printf("Seite: %s (%s), im Speicher=%s\n", page.id,
                 page.kind == PageKind::Drawing ? "Zeichnung" : "nur Lesen", available ? "ja" : "nein");
 }
@@ -152,11 +153,11 @@ void composeCurrentPage() {
 void reloadManifestPreservingPage(bool displayFirstRealManifest) {
   manifestScratch = {}; if (!cache.loadManifest(manifestScratch)) return;
   ensureLocalDrawingPageLast(manifestScratch);
-  char oldId[33] = {};
+  char oldId[65] = {};
   if (manifest.count && currentPage < manifest.count) strcpy(oldId, manifest.pages[currentPage].id);
   manifest = manifestScratch;
   const int preserved = manifest.find(oldId);
-  currentPage = preserved >= 0 ? static_cast<uint8_t>(preserved) : 0;
+  currentPage = displayFirstRealManifest ? 0 : preserved >= 0 ? static_cast<uint8_t>(preserved) : 0;
   const bool removed = oldId[0] && preserved < 0;
   usingFallbackManifest = false;
   if ((displayFirstRealManifest || removed) && display.isIdle()) composeCurrentPage();
@@ -221,8 +222,11 @@ void handleClear() {
   canvas.clearContentWhite(); canvas.drawHeader(manifest.pages[currentPage].label);
   xSemaphoreGive(framebufferMutex);
   pendingInkBounds.reset(); drawingDirty = true; drawingChangedAt = millis();
-  if (display.isIdle()) { pageTransition = display.requestFull(); pendingFullRefresh = false; }
-  else pendingFullRefresh = true;
+  const Rect content{0, kHeaderHeight, kDisplayWidth, kContentHeight};
+  if (display.isIdle()) {
+    pageTransition = display.requestPartial(content);
+    pendingContentRefresh = false;
+  } else pendingContentRefresh = true;
   Serial.println("Zeichnung: Zeichenflaeche wurde geleert");
 }
 
@@ -230,7 +234,11 @@ void serviceDisplayQueue() {
   if (!display.isIdle()) return;
   if (pageTransition) pageTransition = false;
   if (pendingPageAdvance) { pendingPageAdvance = false; advancePage(); return; }
-  if (pendingFullRefresh) { pendingFullRefresh = false; pageTransition = display.requestFull(); return; }
+  if (pendingContentRefresh) {
+    pendingContentRefresh = false;
+    pageTransition = display.requestPartial({0, kHeaderHeight, kDisplayWidth, kContentHeight});
+    return;
+  }
   if (!pendingInkBounds.empty()) {
     const Rect rect = pendingInkBounds.alignedRect();
     if (display.requestPartial(rect)) pendingInkBounds.reset();
@@ -257,7 +265,7 @@ void setup() {
   const int selectedIndex = manifest.find(selected.c_str());
   currentPage = selectedIndex >= 0 ? static_cast<uint8_t>(selectedIndex) : 0;
   if (!display.begin(framebuffer, framebufferMutex)) Serial.println("Schwerer Fehler: Bildschirm-Task konnte nicht gestartet werden");
-  composeCurrentPage();
+  composeCurrentPage(true);
   if (cacheReady && network.begin(&cache)) {
     if (!FAMILY_LOCAL_DEMO_MODE) network.requestSync();
   }
