@@ -53,9 +53,9 @@ export type Bitmap = {
   setPixel: (x: number, y: number) => void;
 };
 
-/** Blank 1 bpp bitmap, MSB first, a set bit is black. */
+/** Blank 1 bpp bitmap, MSB first, 1 is white and 0 is black. */
 export function createBitmap(): Bitmap {
-  const bytes = new Uint8Array(BYTES_PER_ROW * BITMAP_HEIGHT);
+  const bytes = new Uint8Array(BYTES_PER_ROW * BITMAP_HEIGHT).fill(0xff);
 
   return {
     bytes,
@@ -64,7 +64,7 @@ export function createBitmap(): Bitmap {
         return;
       }
 
-      bytes[y * BYTES_PER_ROW + (x >> 3)] |= 0x80 >> (x & 7);
+      bytes[y * BYTES_PER_ROW + (x >> 3)] &= ~(0x80 >> (x & 7));
     },
   };
 }

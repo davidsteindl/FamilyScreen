@@ -84,8 +84,17 @@ export const messages = pgTable(
 
     textContent: text("text_content"),
 
-     bitmapData: bytea("bitmap_data")
+    bitmapData: bytea("bitmap_data")
       .notNull(),
+
+    /** Set for snapshots uploaded by a physical FamilyScreen. */
+    sourceDeviceId: uuid("source_device_id").references(() => devices.id, {
+      onDelete: "set null",
+    }),
+
+    contentSha256: text("content_sha256"),
+
+    idempotencyKey: text("idempotency_key"),
 
     createdAt: timestamp("created_at", {
       withTimezone: true,
@@ -100,6 +109,12 @@ export const messages = pgTable(
 
   (table) => [
     index("messages_recipient_cursor_idx").on(table.recipientUserId, table.id),
+    index("messages_sender_cursor_idx").on(table.senderUserId, table.id),
+    unique("messages_device_idempotency_recipient_unique").on(
+      table.sourceDeviceId,
+      table.idempotencyKey,
+      table.recipientUserId,
+    ),
   ],
 );
 

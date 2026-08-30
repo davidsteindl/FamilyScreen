@@ -1,6 +1,9 @@
 import requireDevice from "@/lib/auth/require-device";
 import { BITMAP_HEIGHT, BITMAP_WIDTH, toBase64 } from "@/lib/screen/bitmap";
-import { getPages } from "@/lib/screen/pages";
+import {
+  createManifestRevision,
+  getRenderedDevicePages,
+} from "@/lib/screen/device-protocol";
 
 export const runtime = "nodejs";
 
@@ -11,17 +14,18 @@ export async function GET(req: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const pages = await Promise.all(
-    (await getPages(device.userId, device.userName)).map(async (page) => ({
-      ...page.meta,
-      // A page that cannot render is sent without one instead of failing the
-      // whole payload; the device keeps showing its last image for that page.
-      bitmap: await page.render().then(toBase64, () => undefined),
-    })),
+  const renderedPages = await getRenderedDevicePages(
+    device.userId,
+    device.userName,
   );
+  const pages = renderedPages.map(({ bitmap, ...page }) => ({
+    ...page,
+    bitmap: toBase64(bitmap),
+  }));
 
   return Response.json(
     {
+      manifestRevision: createManifestRevision(renderedPages),
       pageCount: pages.length,
       bitmapWidth: BITMAP_WIDTH,
       bitmapHeight: BITMAP_HEIGHT,

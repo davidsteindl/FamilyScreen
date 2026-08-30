@@ -176,6 +176,10 @@ bool NetworkService::downloadPage(const PageDescriptor& page) {
   const String url = pageBitmapUrl(page.id);
   if (!beginRequest(http, plain, secure, url)) return false;
   addAuthorization(http);
+  // Bind this download to the exact representation advertised by metadata.
+  // If content changes in the small gap between both requests, the server
+  // returns 412 and the next manifest sync retries with the new hash.
+  http.addHeader("If-Match", String("\"") + page.sha256 + "\"");
   const int status = http.GET();
   if (status != HTTP_CODE_OK || http.getSize() != static_cast<int>(kContentBytes)) {
     Serial.printf("Netzwerk: Seite %s meldet HTTP=%d (%s), Laenge=%d\n", page.id, status,
