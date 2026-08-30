@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-import { BITMAP_HEIGHT, BITMAP_WIDTH, unpackBitmap } from "@/lib/bitmap";
+import { BITMAP_HEIGHT, BITMAP_WIDTH, unpackBitmap } from "@/lib/screen/bitmap";
 import { cn } from "@/lib/utils";
 
 type BitmapCanvasProps = {

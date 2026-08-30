@@ -15,9 +15,9 @@ import {
   formatTime,
   monthGrid,
   WEEKDAY_LABELS,
-} from "./calendar";
-import { quoteOfTheDay } from "./quote";
-import type { Weather } from "./weather";
+} from "../content/calendar";
+import { quoteOfTheDay } from "../content/quote";
+import type { Weather } from "../content/weather";
 
 const MARGIN = 12;
 const BORDER = 2;
@@ -128,7 +128,8 @@ function drawRight(
 }
 
 function drawHeader(bitmap: Bitmap, renderedAt: Date) {
-  const y = HEADER.y + Math.floor((HEADER.height - lineHeight(TITLE_SCALE)) / 2);
+  const y =
+    HEADER.y + Math.floor((HEADER.height - lineHeight(TITLE_SCALE)) / 2);
 
   drawText(bitmap, TITLE, HEADER.x + PAD, y, TITLE_SCALE);
 
@@ -203,7 +204,13 @@ function drawToday(
       break;
     }
 
-    drawText(bitmap, event, area.x, y, fitScale(event, area.width, EVENT_SCALE));
+    drawText(
+      bitmap,
+      event,
+      area.x,
+      y,
+      fitScale(event, area.width, EVENT_SCALE),
+    );
     y += lineHeight(EVENT_SCALE) + LINE_GAP;
   }
 }
