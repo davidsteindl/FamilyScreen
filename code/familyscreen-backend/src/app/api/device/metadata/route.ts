@@ -1,5 +1,5 @@
 import requireDevice from "@/lib/auth/require-device";
-import { getContacts } from "@/lib/contacts";
+import { getPages } from "@/lib/pages";
 
 export const runtime = "nodejs";
 
@@ -10,15 +10,9 @@ export async function GET(req: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const others = await getContacts(device.userId);
-
-  const pages = [
-    { type: "home" as const, name: device.userName },
-    ...others.map((user) => ({
-      type: "user" as const,
-      ...user,
-    })),
-  ];
+  const pages = (await getPages(device.userId, device.userName)).map(
+    (page) => page.meta,
+  );
 
   return Response.json(
     {
