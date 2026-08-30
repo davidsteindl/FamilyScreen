@@ -19,6 +19,7 @@ export const WIEN: Location = {
 };
 
 const REVALIDATE_SECONDS = 900;
+const REQUEST_TIMEOUT_MS = 2_500;
 
 const forecastSchema = z.object({
   current: z.object({
@@ -71,6 +72,27 @@ export type Weather = {
   description: string;
 };
 
+/** Deterministic development/offline data; live Open-Meteo data replaces it. */
+export function mockWeather(location: Location): Weather {
+  if (location.name === WIEN.name) {
+    return {
+      location: location.name,
+      temperature: 22,
+      high: 25,
+      low: 16,
+      description: "LEICHT BEWOELKT",
+    };
+  }
+
+  return {
+    location: location.name,
+    temperature: 18,
+    high: 21,
+    low: 12,
+    description: "UEBERWIEGEND KLAR",
+  };
+}
+
 /** Current conditions from Open-Meteo (no API key needed). */
 export async function getWeather(location: Location): Promise<Weather> {
   const url = new URL("https://api.open-meteo.com/v1/forecast");
@@ -86,6 +108,9 @@ export async function getWeather(location: Location): Promise<Weather> {
 
   const response = await fetch(url, {
     next: { revalidate: REVALIDATE_SECONDS },
+    // A wall screen should render its cached/mock page promptly even when an
+    // upstream weather service or the local development network is unreachable.
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
 
   if (!response.ok) {

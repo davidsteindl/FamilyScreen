@@ -25,12 +25,13 @@ import {
   fitScale,
   strokeRect,
   textWidth,
+  unsupportedCharacters,
   wrapText,
 } from "./bitmap-render";
 import { renderHomescreen } from "./homescreen";
 
 const black = (bytes: Uint8Array, x: number, y: number) =>
-  ((bytes[y * BYTES_PER_ROW + (x >> 3)] >> (7 - (x & 7))) & 1) === 1;
+  ((bytes[y * BYTES_PER_ROW + (x >> 3)] >> (7 - (x & 7))) & 1) === 0;
 
 // Mirrors the layout constants in homescreen.ts. The point is to notice when
 // they move, so the check states them itself instead of importing them.
@@ -58,7 +59,7 @@ assert.equal(black(glyphs.bytes, 11, 21), true);
 // An unknown character draws nothing at all rather than a placeholder box.
 drawText(glyphs, "©", 100, 100, 4);
 assert.equal(
-  glyphs.bytes.subarray(90 * BYTES_PER_ROW).every((byte) => byte === 0),
+  glyphs.bytes.subarray(90 * BYTES_PER_ROW).every((byte) => byte === 0xff),
   true,
 );
 
@@ -239,7 +240,7 @@ assert.notEqual(
 for (let offset = 0; offset < 10; offset++) {
   const quote = quoteOfTheDay(new Date(Date.UTC(2026, 0, 1 + offset, 12)));
   assert.ok(quote.length > 0);
-  assert.ok(!quote.includes(","), `quote has a comma: ${quote}`);
+  assert.deepEqual(unsupportedCharacters(quote), [], `quote: ${quote}`);
 }
 
 //

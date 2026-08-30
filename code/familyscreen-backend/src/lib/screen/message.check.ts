@@ -14,7 +14,7 @@ import {
 import { IMAGE_MAX_HEIGHT, IMAGE_MAX_WIDTH, renderMessage } from "./message";
 
 const black = (bytes: Uint8Array, x: number, y: number) =>
-  ((bytes[y * BYTES_PER_ROW + (x >> 3)] >> (7 - (x & 7))) & 1) === 1;
+  ((bytes[y * BYTES_PER_ROW + (x >> 3)] >> (7 - (x & 7))) & 1) === 0;
 
 // Mirrors the layout constants in message.ts. The point is to notice when they
 // move, so the check states them itself instead of importing them.
@@ -26,7 +26,7 @@ const BODY_TOP = 64;
 // The cell the composer scales pictures into and the server validates against.
 // Both sides key off these two numbers, so they are part of the wire contract.
 assert.equal(IMAGE_MAX_WIDTH, 260);
-assert.equal(IMAGE_MAX_HEIGHT, 298);
+assert.equal(IMAGE_MAX_HEIGHT, 338);
 
 //
 // NEW GLYPHS
@@ -38,7 +38,7 @@ for (const character of ',;!?()"+=%&_') {
   drawText(sheet, character, 10, 10, 2);
 
   assert.ok(
-    sheet.bytes.some((byte) => byte !== 0),
+    sheet.bytes.some((byte) => byte !== 0xff),
     `glyph draws nothing: ${character}`,
   );
 }
@@ -81,7 +81,9 @@ drawTile(clipped, tile3, BITMAP_WIDTH - 1, BITMAP_HEIGHT - 1);
 assert.equal(black(clipped.bytes, BITMAP_WIDTH - 1, BITMAP_HEIGHT - 1), true);
 assert.equal(black(clipped.bytes, 0, BITMAP_HEIGHT - 1), false);
 assert.equal(
-  clipped.bytes.subarray(0, (BITMAP_HEIGHT - 1) * BYTES_PER_ROW).every((b) => b === 0),
+  clipped.bytes
+    .subarray(0, (BITMAP_HEIGHT - 1) * BYTES_PER_ROW)
+    .every((b) => b === 0xff),
   true,
 );
 
@@ -112,10 +114,10 @@ const LONG =
   "HALLO OMA UND OPA WIR KOMMEN AM SAMSTAG ZU BESUCH UND BRINGEN KUCHEN MIT DIE KINDER FREUEN SICH SCHON SEHR AUF EUCH UND WOLLEN UNBEDINGT WIEDER IM GARTEN SPIELEN BITTE SAGT BESCHEID OB EUCH DER NACHMITTAG PASST SONST KOMMEN WIR AM SONNTAG VORBEI BIS BALD EUER DAVID";
 
 assert.ok(
-  fitBlock(LONG, 462, 298, 5, 8) < fitBlock(SHORT, 462, 298, 5, 8),
+  fitBlock(LONG, 462, 338, 5, 8) < fitBlock(SHORT, 462, 338, 5, 8),
   "a long text has to be drawn smaller than a short one",
 );
-assert.equal(fitBlock(SHORT, 462, 298, 5, 8), 5); // room to spare keeps maxScale
+assert.equal(fitBlock(SHORT, 462, 338, 5, 8), 5); // room to spare keeps maxScale
 assert.equal(fitBlock(LONG, 20, 20, 5, 8), 1); // never 0, however tight the box
 
 //

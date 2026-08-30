@@ -2,10 +2,12 @@ import { and, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { messages } from "@/db/schema";
+import { getContacts } from "@/lib/contacts";
+import { BITMAP_BYTES } from "@/lib/screen/bitmap";
 
 /**
  * drizzle-orm 1.0.0-rc.4 normalises a bytea parameter with String(), which
- * utf8-decodes the Buffer and destroys every byte above 0x7f — a 40 kB bitmap
+ * utf8-decodes the Buffer and destroys every byte above 0x7f — a 44 kB bitmap
  * arrives as replacement characters. Handing Postgres hex sidesteps the codec,
  * because an SQL chunk has no column encoder for it to apply.
  * One line instead of a custom column type; drop it once drizzle ships a fix.
@@ -31,8 +33,14 @@ export async function latestMessageFor(
     .orderBy(desc(messages.id))
     .limit(1);
 
+  // Rows stored before the screen grew to 440 rows are the wrong length, and the
+  // firmware rejects a short page rather than drawing it. Treat them as absent.
+  if (row?.bitmapData?.byteLength !== BITMAP_BYTES) {
+    return null;
+  }
+
   // The driver hands back a Buffer; the renderers speak Uint8Array.
-  return row ? Uint8Array.from(row.bitmapData) : null;
+  return Uint8Array.from(row.bitmapData);
 }
 
 export async function insertMessage(
@@ -47,4 +55,55 @@ export async function insertMessage(
     textContent: text,
     bitmapData: toBytea(bitmap),
   });
+}
+
+/**
+ * A drawing uploaded by a physical screen goes to every contact at once: the
+ * device has no recipient picker, so drawing on it means showing the family.
+ * The unique index on (device, key, recipient) makes a retried upload a no-op.
+ */
+export async function storeDeviceBroadcast({
+  deviceId,
+  senderUserId,
+  bitmapData,
+  contentSha256,
+  idempotencyKey,
+}: {
+  deviceId: string;
+  senderUserId: string;
+  bitmapData: Uint8Array;
+  contentSha256: string;
+  idempotencyKey: string;
+}) {
+  const recipients = await getContacts(senderUserId);
+
+  if (recipients.length === 0) {
+    return { recipientCount: 0, insertedCount: 0 };
+  }
+
+  const inserted = await db
+    .insert(messages)
+    .values(
+      recipients.map((recipient) => ({
+        senderUserId,
+        recipientUserId: recipient.userId,
+        bitmapData: toBytea(bitmapData),
+        sourceDeviceId: deviceId,
+        contentSha256,
+        idempotencyKey,
+      })),
+    )
+    .onConflictDoNothing({
+      target: [
+        messages.sourceDeviceId,
+        messages.idempotencyKey,
+        messages.recipientUserId,
+      ],
+    })
+    .returning({ id: messages.id });
+
+  return {
+    recipientCount: recipients.length,
+    insertedCount: inserted.length,
+  };
 }

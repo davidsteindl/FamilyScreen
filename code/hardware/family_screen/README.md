@@ -4,7 +4,7 @@ Offline-first firmware for the LOLIN32, an 800×480 UC8179 monochrome e-ink pane
 
 ## Configure and build
 
-1. Copy `include/secrets.example.h` to `include/secrets.h` and enter the Wi-Fi, API base URL, and bearer token. The real secrets file is ignored by Git. The checked-in ISRG Root X1 certificate validates the current Let's Encrypt API certificate; do not enable insecure HTTPS.
+1. Copy `include/secrets.example.h` to `include/secrets.h` and enter the Wi-Fi, API base URL (including `/api`, for example `https://familyscreen.example/api`), and bearer token. The real secrets file is ignored by Git. The checked-in ISRG Root X1 certificate validates the current Let's Encrypt API certificate; do not enable insecure HTTPS.
 2. Build with `pio run` and upload with `pio run --target upload`.
 3. Watch the first twenty touch samples at 115200 baud. If the reported screen coordinates do not match the touched corners, set `FAMILY_TOUCH_SWAP_XY`, `FAMILY_TOUCH_MIRROR_X`, or `FAMILY_TOUCH_MIRROR_Y` in `platformio.ini` build flags.
 4. Run host-side logic tests with `pio test -e native`.
@@ -54,7 +54,7 @@ The manifest contains 1–23 server-owned pages with unique IDs of at most 64 ch
 - Cached pages switch without waiting for the network. A page-button press also requests a background synchronization.
 - New remote content is cached but does not interrupt the currently visible page; it appears on the next visit.
 - Drawing uses the first GT911 contact ID until it lifts and ignores other contacts. Dirty areas refresh after each completed stroke.
-- Drawings are saved/uploaded after five idle seconds or before leaving the page. Failed uploads remain in LittleFS and retry with exponential backoff.
+- Drawings are saved/uploaded after fifteen idle seconds or before leaving the page. A page-button press snapshots and queues the drawing before the next page is composed. Failed uploads remain in LittleFS and retry with exponential backoff.
 - Clear affects only the drawing page. Clear and normal page changes use fast differential updates; startup and every twentieth differential update use a full cleanup refresh to limit ghosting.
 
 The checked-in hardware profile uses the GT911 landscape coordinates without swapping or mirroring. Full and partial updates use the same in-memory/API bitmap convention: `1 = white`, `0 = black`.

@@ -65,9 +65,9 @@ export type Bitmap = {
   setPixel: (x: number, y: number) => void;
 };
 
-/** Blank 1 bpp bitmap, MSB first, a set bit is black. */
+/** Blank 1 bpp bitmap, MSB first, 1 is white and 0 is black. */
 export function createBitmap(): Bitmap {
-  const bytes = new Uint8Array(BYTES_PER_ROW * BITMAP_HEIGHT);
+  const bytes = new Uint8Array(BYTES_PER_ROW * BITMAP_HEIGHT).fill(0xff);
 
   return {
     bytes,
@@ -76,7 +76,7 @@ export function createBitmap(): Bitmap {
         return;
       }
 
-      bytes[y * BYTES_PER_ROW + (x >> 3)] |= 0x80 >> (x & 7);
+      bytes[y * BYTES_PER_ROW + (x >> 3)] &= ~(0x80 >> (x & 7));
     },
   };
 }
@@ -152,7 +152,11 @@ export function textWidth(text: string, scale: number) {
   return count === 0 ? 0 : ((GLYPH_WIDTH + 1) * count - 1) * scale;
 }
 
-/** A packed 1 bpp image, MSB first, a set bit is ink — the same as the screen. */
+/**
+ * A packed 1 bpp image, MSB first, a set bit is ink. Note this is the inverse
+ * of the screen buffer, where the panel's convention makes 1 white: a tile is
+ * drawn through setPixel, so only drawTile ever sees the difference.
+ */
 export type Tile = {
   width: number;
   height: number;

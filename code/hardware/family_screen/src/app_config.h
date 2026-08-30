@@ -31,7 +31,7 @@ constexpr uint8_t kPageButtonPin = 26;
 
 constexpr uint32_t kProductionSyncIntervalMs = 10UL * 60UL * 1000UL;
 constexpr uint32_t kDebugSyncIntervalMs = 15UL * 1000UL;
-constexpr uint32_t kDrawingIdleUploadMs = 5UL * 1000UL;
+constexpr uint32_t kDrawingIdleUploadMs = 15UL * 1000UL;
 constexpr uint32_t kButtonDebounceMs = 45;
 // Radius 1 ergibt einen kompakten, etwa drei Pixel breiten Stiftstrich.
 constexpr uint8_t kBrushRadius = 1;
