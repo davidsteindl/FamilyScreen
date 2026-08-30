@@ -28,7 +28,6 @@ import {
   monthGrid,
   WEEKDAY_LABELS,
 } from "../content/calendar";
-import { quoteOfTheDay } from "../content/quote";
 import type { Weather } from "../content/weather";
 
 const BLOCK_GAP = 14;
@@ -228,8 +227,8 @@ function drawMonth(bitmap: Bitmap, renderedAt: Date, box: Box) {
   });
 }
 
-function drawQuote(bitmap: Bitmap, renderedAt: Date, box: Box) {
-  drawTextBlock(bitmap, quoteOfTheDay(renderedAt), box, QUOTE_SCALE);
+function drawDailyMessage(bitmap: Bitmap, message: string, box: Box) {
+  drawTextBlock(bitmap, message, box, QUOTE_SCALE);
 }
 
 export type Homescreen = {
@@ -240,6 +239,8 @@ export type Homescreen = {
   secondary: Weather;
   /** Today's appointments, one line each. */
   events: string[];
+  /** Approved editorial content selected by the backend for this Vienna day. */
+  dailyMessage: string;
 };
 
 export function renderHomescreen({
@@ -247,6 +248,7 @@ export function renderHomescreen({
   primary,
   secondary,
   events,
+  dailyMessage,
 }: Homescreen) {
   const bitmap = createScreen();
 
@@ -260,7 +262,7 @@ export function renderHomescreen({
   drawWeatherCell(bitmap, secondary, WEATHER_BOTTOM);
   drawToday(bitmap, renderedAt, events, TODAY);
   drawMonth(bitmap, renderedAt, MONTH);
-  drawQuote(bitmap, renderedAt, QUOTE);
+  drawDailyMessage(bitmap, dailyMessage, QUOTE);
 
   return bitmap.bytes;
 }

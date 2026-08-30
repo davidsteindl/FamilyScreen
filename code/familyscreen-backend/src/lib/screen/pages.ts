@@ -2,6 +2,8 @@ import { getContacts } from "../contacts";
 import { getEvents } from "../content/events";
 import { getWeather, mockWeather, OTTENSCHLAG, WIEN } from "../content/weather";
 import { latestMessageFor } from "../messages";
+import { fallbackDailyMessage } from "../../features/daily-message/fallback";
+import { getDailyMessage } from "../../features/daily-message/service";
 import { renderHomescreen } from "./homescreen";
 import { renderMessage } from "./message";
 
@@ -41,13 +43,22 @@ export async function renderHome() {
 
   // Live weather and calendar data remain authoritative. Each source falls
   // back independently so one unavailable provider cannot blank the screen.
-  const [primary, secondary, events] = await Promise.all([
+  const [primary, secondary, events, dailyMessage] = await Promise.all([
     getWeather(OTTENSCHLAG).catch(() => mockWeather(OTTENSCHLAG)),
     getWeather(WIEN).catch(() => mockWeather(WIEN)),
     getEvents(renderedAt).catch(() => []),
+    getDailyMessage(renderedAt)
+      .then((message) => message?.text ?? fallbackDailyMessage())
+      .catch(() => fallbackDailyMessage()),
   ]);
 
-  return renderHomescreen({ renderedAt, primary, secondary, events });
+  return renderHomescreen({
+    renderedAt,
+    primary,
+    secondary,
+    events,
+    dailyMessage,
+  });
 }
 
 /** The pages a device shows, in order. A new page type is one more entry here. */

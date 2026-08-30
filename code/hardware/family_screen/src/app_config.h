@@ -32,6 +32,18 @@ constexpr uint8_t kPageButtonPin = 26;
 constexpr uint32_t kProductionSyncIntervalMs = 10UL * 60UL * 1000UL;
 constexpr uint32_t kDebugSyncIntervalMs = 15UL * 1000UL;
 constexpr uint32_t kDrawingIdleUploadMs = 15UL * 1000UL;
+constexpr uint32_t kWifiConnectTimeoutMs = 20UL * 1000UL;
+constexpr uint32_t kWifiRetryInitialMs = 5UL * 1000UL;
+constexpr uint32_t kWifiRetryMaximumMs = 5UL * 60UL * 1000UL;
+constexpr uint32_t kApiRetryInitialMs = 15UL * 1000UL;
+constexpr uint32_t kApiRetryMaximumMs = 10UL * 60UL * 1000UL;
+constexpr uint32_t kHttpConnectTimeoutMs = 8UL * 1000UL;
+// A full 44 KB bitmap can take much longer than metadata on a marginal link.
+constexpr uint32_t kHttpOperationTimeoutMs = 45UL * 1000UL;
+constexpr uint32_t kStartupFailureRestartMs = 15UL * 60UL * 1000UL;
+// A normal HTTPS operation is bounded to 45 seconds. Two minutes without any
+// network-task progress therefore indicates a deadlock rather than an outage.
+constexpr uint32_t kNetworkTaskStallRestartMs = 2UL * 60UL * 1000UL;
 constexpr uint32_t kButtonDebounceMs = 45;
 // Radius 1 ergibt einen kompakten, etwa drei Pixel breiten Stiftstrich.
 constexpr uint8_t kBrushRadius = 1;

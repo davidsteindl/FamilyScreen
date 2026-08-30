@@ -1,6 +1,13 @@
 'use client';
 
-import { Inbox, LayoutTemplate, PenLine, Send, type LucideIcon } from 'lucide-react';
+import {
+  Inbox,
+  LayoutTemplate,
+  MessageSquareQuote,
+  PenLine,
+  Send,
+  type LucideIcon,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useSelectedLayoutSegments } from 'next/navigation';
 
@@ -37,6 +44,12 @@ const items: readonly NavItem[] = [
     href: '/create-homescreen',
     label: 'Create homescreen',
     icon: LayoutTemplate,
+  },
+  {
+    segment: 'daily-messages',
+    href: '/daily-messages',
+    label: 'Tagesinhalte prüfen',
+    icon: MessageSquareQuote,
   },
 ];
 

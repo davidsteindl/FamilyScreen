@@ -14,13 +14,16 @@ class NetworkService {
   void requestSync();
   void requestUpload();
   uint32_t manifestGeneration() const { return manifestGeneration_; }
+  uint32_t lastProgressMs() const { return lastProgressMs_; }
   bool connected() const;
 
  private:
   static void taskEntry(void* context);
   void taskLoop();
   bool configurationValid() const;
-  void ensureWifi();
+  bool ensureWifi(uint32_t now);
+  void startWifiAttempt(uint32_t now);
+  void markProgress() { lastProgressMs_ = millis(); }
   bool ensureClock();
   bool synchronizeManifest();
   bool downloadPage(const PageDescriptor& page);
@@ -33,7 +36,13 @@ class NetworkService {
   CacheStore* cache_ = nullptr;
   TaskHandle_t task_ = nullptr;
   volatile uint32_t manifestGeneration_ = 0;
+  volatile uint32_t lastProgressMs_ = 0;
   bool wifiStarted_ = false;
+  bool wifiAttemptActive_ = false;
+  bool wifiWasConnected_ = false;
+  uint32_t wifiAttemptStartedAt_ = 0;
+  uint32_t wifiRetryAt_ = 0;
+  uint32_t wifiRetryDelayMs_ = 0;
   bool clockConfigured_ = false;
   uint32_t clockRetryAt_ = 0;
   PageManifest manifestScratch_;
