@@ -12,11 +12,18 @@ npm ci
 Copy-Item .env.example .env.local
 # Fill in .env.local, then:
 npm run db:migrate
+npm run db:seed-content
 npm run dev
 ```
 
 Open `http://localhost:3000`. The web UI is intentionally unchanged; the
 existing Create homescreen route still previews its homescreen bitmap.
+
+The daily Austrian saying uses its own table in the existing PostgreSQL
+database. Visit `/daily-messages` to review its 260 seed candidates. New
+candidates start as pending and never reach the device until a signed-in
+reviewer explicitly approves them. See
+`src/features/daily-message/README.md` for the selection and review rules.
 
 Weather comes from Open-Meteo and is cached for 15 minutes. If it is unreachable,
 the homescreen still renders using deterministic mock weather. Appointments and

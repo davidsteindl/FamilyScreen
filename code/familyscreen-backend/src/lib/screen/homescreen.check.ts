@@ -9,7 +9,6 @@ import {
   WEEKDAY_LABELS,
 } from "../content/calendar";
 import { eventsOn } from "../content/events";
-import { quoteOfTheDay } from "../content/quote";
 import type { Weather } from "../content/weather";
 import {
   BITMAP_HEIGHT,
@@ -223,27 +222,6 @@ assert.deepEqual(eventsOn(FIXTURE, new Date("2026-08-17T10:00:00Z")), []);
 assert.deepEqual(eventsOn(FIXTURE, new Date("2026-08-19T10:00:00Z")), []);
 
 //
-// QUOTE
-//
-
-const morning = new Date("2026-08-30T06:00:00Z");
-assert.equal(
-  quoteOfTheDay(morning),
-  quoteOfTheDay(new Date("2026-08-30T18:00:00Z")),
-);
-assert.notEqual(
-  quoteOfTheDay(morning),
-  quoteOfTheDay(new Date("2026-08-31T06:00:00Z")),
-);
-
-// The 5x7 font has no comma, so no saying may contain one.
-for (let offset = 0; offset < 10; offset++) {
-  const quote = quoteOfTheDay(new Date(Date.UTC(2026, 0, 1 + offset, 12)));
-  assert.ok(quote.length > 0);
-  assert.deepEqual(unsupportedCharacters(quote), [], `quote: ${quote}`);
-}
-
-//
 // HOMESCREEN
 //
 
@@ -264,7 +242,14 @@ const wien: Weather = {
 };
 
 const renderedAt = new Date("2026-08-30T10:00:00Z");
-const screen = { renderedAt, primary: ottenschlag, secondary: wien };
+const screen = {
+  renderedAt,
+  primary: ottenschlag,
+  secondary: wien,
+  dailyMessage: "A BISserl Freude passt in jeden Tag",
+};
+
+assert.deepEqual(unsupportedCharacters(screen.dailyMessage), []);
 
 const base = renderHomescreen({ ...screen, events: [] });
 
@@ -358,7 +343,7 @@ assert.ok(
 
 // The longest conditions and widest temperatures stay in the weather column.
 const wide = renderHomescreen({
-  renderedAt,
+  ...screen,
   primary: {
     ...ottenschlag,
     temperature: -13.6,
