@@ -6,6 +6,7 @@ import { BitmapCanvas } from "@/components/bitmap-canvas";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { formatDayHeading, formatTime } from "@/lib/content/calendar";
 import { toBase64 } from "@/lib/screen/bitmap";
 import { unsupportedCharacters, type Tile } from "@/lib/screen/bitmap-render";
 import { fileToTile } from "@/lib/screen/image-tile";
@@ -13,6 +14,7 @@ import {
   IMAGE_MAX_HEIGHT,
   IMAGE_MAX_WIDTH,
   renderMessage,
+  renderNoMessage,
 } from "@/lib/screen/message";
 import { sendMessage } from "@/lib/send-message";
 
@@ -25,17 +27,23 @@ const CONTROL =
 
 type Contact = { userId: string; name: string };
 
+/** What the recipient's device page shows from this sender right now. */
+type LiveMessage = { bitmap: string; sentAt: Date; blank: boolean };
+
 type MessageComposerProps = {
   contacts: Contact[];
   senderName: string;
+  live: Record<string, LiveMessage | undefined>;
 };
 
 export function MessageComposer({
   contacts,
   senderName,
+  live,
 }: MessageComposerProps) {
   const [result, formAction, pending] = useActionState(sendMessage, undefined);
 
+  const [recipientId, setRecipientId] = useState(contacts[0]?.userId ?? "");
   const [text, setText] = useState("");
   const [tile, setTile] = useState<Tile>();
   const [imageError, setImageError] = useState<string>();
@@ -45,7 +53,7 @@ export function MessageComposer({
   // Rendering is a few thousand setPixel calls on 40 kB, well under a
   // millisecond, so the preview can just follow every keystroke. This is what
   // the isomorphic renderer was for: the bytes drawn here are the bytes stored.
-  const preview = useMemo(
+  const draft = useMemo(
     () =>
       toBase64(
         renderMessage({
@@ -56,6 +64,13 @@ export function MessageComposer({
         }),
       ),
     [senderName, text, tile],
+  );
+
+  // The same call getPages makes for a pairing nobody has written to yet, so an
+  // empty history previews the real page instead of a blank canvas.
+  const nothingYet = useMemo(
+    () => toBase64(renderNoMessage(senderName, new Date())),
+    [senderName],
   );
 
   const missing = useMemo(() => unsupportedCharacters(text), [text]);
@@ -112,12 +127,27 @@ export function MessageComposer({
     );
   }
 
+  // A message is not an event the screen consumes, it is the state the screen
+  // holds. So the canvas shows that state whenever nothing is being written and
+  // the draft only while it is: sending hands the draft over to the screen
+  // rather than clearing it away.
+  const composing = text.trim().length > 0 || tile !== undefined;
+  const current = live[recipientId];
+  const recipientName =
+    contacts.find((contact) => contact.userId === recipientId)?.name ?? "";
+
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
       <form action={formAction} className="flex flex-col gap-6">
         <div className="grid gap-2">
           <Label htmlFor="recipientId">To</Label>
-          <select id="recipientId" name="recipientId" className={CONTROL}>
+          <select
+            id="recipientId"
+            name="recipientId"
+            className={CONTROL}
+            value={recipientId}
+            onChange={(event) => setRecipientId(event.target.value)}
+          >
             {contacts.map((contact) => (
               <option key={contact.userId} value={contact.userId}>
                 {contact.name}
@@ -197,8 +227,10 @@ export function MessageComposer({
           </>
         )}
 
+        {/* Naming the overwrite on the button, because that is what it does:
+            the screen holds one message per sender, not a list. */}
         <Button type="submit" disabled={pending}>
-          Send
+          {current ? "Replace what is on the screen" : "Send"}
         </Button>
 
         {result && "error" in result && (
@@ -206,15 +238,37 @@ export function MessageComposer({
             {result.error}
           </p>
         )}
-
-        {sent && <p className="text-sm text-emerald-600">Message sent.</p>}
       </form>
 
       <div>
-        <p className="mb-2 text-sm text-neutral-500">
-          Exactly what the screen will show.
+        <p
+          aria-live="polite"
+          className="mb-2 flex flex-wrap items-baseline gap-x-2 text-sm"
+        >
+          <span
+            className={
+              composing
+                ? "font-medium text-amber-600"
+                : "font-medium text-emerald-700"
+            }
+          >
+            {composing ? "Draft" : `On the screen of ${recipientName}`}
+          </span>
+
+          <span className="text-neutral-500">
+            {composing
+              ? `Replaces this when you send it to ${recipientName}.`
+              : current
+                ? current.blank
+                  ? "The screen was cleared."
+                  : `Since ${formatDayHeading(current.sentAt)}, ${formatTime(current.sentAt)}.`
+                : "Nothing from you yet — this is the page they see."}
+          </span>
         </p>
-        <BitmapCanvas bitmap={preview} />
+
+        <BitmapCanvas
+          bitmap={composing ? draft : (current?.bitmap ?? nothingYet)}
+        />
       </div>
     </div>
   );

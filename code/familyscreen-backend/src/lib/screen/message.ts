@@ -53,6 +53,8 @@ const TEXT_ALONE: Box = {
 export const IMAGE_MAX_WIDTH = IMAGE.width - 2 * PAD;
 export const IMAGE_MAX_HEIGHT = IMAGE.height - 2 * PAD;
 
+const NO_MESSAGE_TEXT = "NOCH KEINE NACHRICHT";
+
 const FROM_SCALE = 4;
 const DATE_SCALE = 2;
 const TEXT_SCALE = 5;
@@ -118,4 +120,12 @@ export function renderMessage({ from, sentAt, text, image }: Message) {
   drawTextBlock(bitmap, text, image ? TEXT_BESIDE : TEXT_ALONE, TEXT_SCALE);
 
   return bitmap.bytes;
+}
+
+/**
+ * The page a pairing has before anything has been written to it. Both the device
+ * and the composer draw it, so what "no message yet" looks like is decided once.
+ */
+export function renderNoMessage(from: string, sentAt: Date) {
+  return renderMessage({ from, sentAt, text: NO_MESSAGE_TEXT });
 }

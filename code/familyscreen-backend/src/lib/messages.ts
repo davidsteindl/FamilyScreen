@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/db";
 import { messages, users } from "@/db/schema";
@@ -27,24 +27,54 @@ function toBitmap(bitmapData: Buffer | null | undefined) {
     : null;
 }
 
-/** The newest message this sender wrote to this recipient, as the device shows it. */
-export async function latestMessageFor(
-  senderUserId: string,
-  recipientUserId: string,
+/**
+ * The newest message per counterpart, in one query: one side of the pairing is
+ * fixed, the other is what the rows are grouped by. DISTINCT ON needs its column
+ * to lead the ordering, and the id then picks the newest row within each group.
+ *
+ * Device uploads count. A drawing made on a physical screen lands on its
+ * contacts' pages exactly like a composed message does, so leaving it out would
+ * report a state the screens do not actually hold.
+ */
+async function latestPerCounterpart(
+  fixed: SQL,
+  counterpart: typeof messages.senderUserId | typeof messages.recipientUserId,
 ) {
-  const [row] = await db
-    .select({ bitmapData: messages.bitmapData })
+  const rows = await db
+    .selectDistinctOn([counterpart], {
+      counterpartId: counterpart,
+      bitmapData: messages.bitmapData,
+      createdAt: messages.createdAt,
+    })
     .from(messages)
-    .where(
-      and(
-        eq(messages.senderUserId, senderUserId),
-        eq(messages.recipientUserId, recipientUserId),
-      ),
-    )
-    .orderBy(desc(messages.id))
-    .limit(1);
+    .where(fixed)
+    .orderBy(counterpart, desc(messages.id));
 
-  return toBitmap(row?.bitmapData);
+  return new Map(
+    rows.flatMap((row) => {
+      const bitmap = toBitmap(row.bitmapData);
+
+      return bitmap
+        ? [[row.counterpartId, { bitmap, sentAt: row.createdAt }] as const]
+        : [];
+    }),
+  );
+}
+
+/** What this sender currently has on each of their recipients' screens. */
+export function latestMessagesFrom(senderUserId: string) {
+  return latestPerCounterpart(
+    eq(messages.senderUserId, senderUserId),
+    messages.recipientUserId,
+  );
+}
+
+/** What this recipient currently sees from each of the people who write to them. */
+export function latestMessagesTo(recipientUserId: string) {
+  return latestPerCounterpart(
+    eq(messages.recipientUserId, recipientUserId),
+    messages.senderUserId,
+  );
 }
 
 /**

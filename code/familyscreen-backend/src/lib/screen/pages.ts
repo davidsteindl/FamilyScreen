@@ -1,11 +1,11 @@
 import { getContacts } from "../contacts";
 import { getEvents } from "../content/events";
 import { getWeather, mockWeather, OTTENSCHLAG, WIEN } from "../content/weather";
-import { latestMessageFor } from "../messages";
+import { latestMessagesTo } from "../messages";
 import { fallbackDailyMessage } from "../../features/daily-message/fallback";
 import { getDailyMessage } from "../../features/daily-message/service";
 import { renderHomescreen } from "./homescreen";
-import { renderMessage } from "./message";
+import { renderNoMessage } from "./message";
 
 export type PageMeta = {
   id: string;
@@ -68,6 +68,12 @@ export async function getPages(
 ): Promise<Page[]> {
   const contacts = (await getContacts(userId)).slice(0, MAX_SERVER_PAGES - 1);
 
+  // Started by whichever contact page renders first and shared by the rest:
+  // /metadata hashes every page and would otherwise pay one query per contact,
+  // while a bitmap request for the homescreen alone still pays none.
+  let latest: ReturnType<typeof latestMessagesTo> | undefined;
+  const latestMessages = () => (latest ??= latestMessagesTo(userId));
+
   return [
     {
       meta: { id: "home", label: userName, kind: "readonly" as const },
@@ -79,16 +85,9 @@ export async function getPages(
         label: contact.name.slice(0, MAX_LABEL_CHARACTERS),
         kind: "readonly" as const,
       },
-      // One query per contact, and /metadata pays for all of them because it
-      // hashes each page. A DISTINCT ON (sender_user_id) would collapse it into
-      // one query, worth doing only once contact lists get long.
       render: async () =>
-        (await latestMessageFor(contact.userId, userId)) ??
-        renderMessage({
-          from: contact.name,
-          sentAt: renderClock(),
-          text: "NOCH KEINE NACHRICHT",
-        }),
+        (await latestMessages()).get(contact.userId)?.bitmap ??
+        renderNoMessage(contact.name, renderClock()),
     })),
   ];
 }
