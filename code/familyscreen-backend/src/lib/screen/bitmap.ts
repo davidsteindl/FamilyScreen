@@ -5,6 +5,15 @@ export const BITMAP_HEIGHT = 440;
 export const BYTES_PER_ROW = BITMAP_WIDTH / 8;
 export const BITMAP_BYTES = BYTES_PER_ROW * BITMAP_HEIGHT;
 
+/**
+ * What the clear button leaves behind: every pixel white. Read off the bytes
+ * rather than compared against a stored hash, so it stays true whatever the
+ * screen geometry becomes.
+ */
+export function isBlankBitmap(bytes: Uint8Array) {
+  return bytes.every((byte) => byte === 0xff);
+}
+
 /** Works in both runtimes, unlike Buffer — the canvas preview imports this module too. */
 export function toBase64(bytes: Uint8Array) {
   let binary = "";

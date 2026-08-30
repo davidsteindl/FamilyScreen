@@ -3,7 +3,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { BitmapCanvas } from "@/components/bitmap-canvas";
 import { formatDayHeading, formatTime } from "@/lib/content/calendar";
 import { latestDeviceMessageFor } from "@/lib/messages";
-import { toBase64 } from "@/lib/screen/bitmap";
+import { isBlankBitmap, toBase64 } from "@/lib/screen/bitmap";
 
 export default async function InboxPage() {
   const session = await auth();
@@ -16,10 +16,7 @@ export default async function InboxPage() {
 
   const message = await latestDeviceMessageFor(session.user.id);
 
-  // An all-white page is what the clear button leaves behind. Read it off the
-  // bytes rather than against a stored hash: the blank is whatever the canvas
-  // looks like when nothing is drawn on it.
-  const cleared = message?.bitmap.every((byte) => byte === 0xff) ?? false;
+  const cleared = message ? isBlankBitmap(message.bitmap) : false;
 
   return (
     <main className="flex-1 p-8">

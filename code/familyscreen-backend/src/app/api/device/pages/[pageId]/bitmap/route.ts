@@ -2,7 +2,8 @@ import { timingSafeEqual } from "node:crypto";
 
 import requireDevice from "@/lib/auth/require-device";
 import { storeDeviceBroadcast } from "@/lib/messages";
-import { BITMAP_BYTES } from "@/lib/screen/bitmap";
+import { notifyDrawingArrived } from "@/lib/notify";
+import { BITMAP_BYTES, isBlankBitmap } from "@/lib/screen/bitmap";
 import {
   etagMatches,
   getRenderedDevicePage,
@@ -148,6 +149,19 @@ export async function PUT(
   }
 
   const duplicate = result.insertedCount === 0;
+
+  // Only a genuinely new state worth looking at: a retry inserts nothing, and a
+  // cleared screen is not news anyone wants in their inbox.
+  if (!duplicate && !isBlankBitmap(bitmap)) {
+    await notifyDrawingArrived({
+      deviceId: device.id,
+      senderUserId: device.userId,
+      senderName: device.userName,
+      contentSha256: actualHash,
+      // The host the screen just uploaded to, so the link needs no configuring.
+      inboxUrl: new URL("/inbox", request.url).toString(),
+    });
+  }
 
   return Response.json(
     {

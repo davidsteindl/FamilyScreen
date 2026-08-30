@@ -5,7 +5,7 @@ import { contacts, users } from "@/db/schema";
 
 export async function getContacts(userId: string) {
   return db
-    .select({ userId: users.id, name: users.name })
+    .select({ userId: users.id, name: users.name, email: users.email })
     .from(contacts)
     .innerJoin(
       users,
