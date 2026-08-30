@@ -1,6 +1,6 @@
 'use client';
 
-import { Inbox, PenLine, Send, type LucideIcon } from 'lucide-react';
+import { Inbox, LayoutTemplate, PenLine, Send, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useSelectedLayoutSegments } from 'next/navigation';
 
@@ -27,10 +27,16 @@ const items: readonly NavItem[] = [
     icon: Send,
   },
   {
-    segment: 'new',
-    href: '/new',
+    segment: 'new message',
+    href: '/new-message',
     label: 'New message',
     icon: PenLine,
+  },
+  {
+    segment: 'create-homescreen',
+    href: '/create-homescreen',
+    label: 'Create homescreen',
+    icon: LayoutTemplate,
   },
 ];
 
