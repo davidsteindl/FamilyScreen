@@ -166,12 +166,17 @@ void reloadManifestPreservingPage(bool displayFirstRealManifest) {
   ensureLocalDrawingPageLast(manifestScratch);
   char oldId[65] = {};
   if (manifest.count && currentPage < manifest.count) strcpy(oldId, manifest.pages[currentPage].id);
+  const int nextIndex = manifestScratch.find(oldId);
+  const bool visiblePageChanged = oldId[0] && nextIndex >= 0 &&
+                                  !manifest.pages[currentPage].displayContentMatches(
+                                      manifestScratch.pages[nextIndex]);
   manifest = manifestScratch;
   const int preserved = manifest.find(oldId);
   currentPage = displayFirstRealManifest ? 0 : preserved >= 0 ? static_cast<uint8_t>(preserved) : 0;
   const bool removed = oldId[0] && preserved < 0;
   usingFallbackManifest = false;
-  if ((displayFirstRealManifest || removed) && display.isIdle()) composeCurrentPage();
+  if ((displayFirstRealManifest || removed || visiblePageChanged) && display.isIdle())
+    composeCurrentPage();
 }
 
 void mergePendingInk(const Rect& rect) {
