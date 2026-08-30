@@ -46,6 +46,18 @@ const GLYPHS: Record<string, number[]> = {
   ".": [0x00, 0x00, 0x40, 0x00, 0x00],
   ":": [0x00, 0x00, 0x14, 0x00, 0x00],
   "/": [0x40, 0x20, 0x10, 0x08, 0x04],
+  ",": [0x00, 0x50, 0x30, 0x00, 0x00],
+  ";": [0x00, 0x56, 0x36, 0x00, 0x00],
+  "!": [0x00, 0x00, 0x5f, 0x00, 0x00],
+  "?": [0x02, 0x01, 0x51, 0x09, 0x06],
+  "(": [0x00, 0x1c, 0x22, 0x41, 0x00],
+  ")": [0x00, 0x41, 0x22, 0x1c, 0x00],
+  '"': [0x00, 0x07, 0x00, 0x07, 0x00],
+  "+": [0x08, 0x08, 0x3e, 0x08, 0x08],
+  "=": [0x14, 0x14, 0x14, 0x14, 0x14],
+  "%": [0x23, 0x13, 0x08, 0x64, 0x62],
+  "&": [0x36, 0x49, 0x55, 0x22, 0x50],
+  _: [0x40, 0x40, 0x40, 0x40, 0x40],
 };
 
 export type Bitmap = {
@@ -104,14 +116,33 @@ const UMLAUTS: Record<string, string> = {
   Ü: "UE",
 };
 
-function toGlyphs(text: string) {
+/** The characters the font is actually asked for, after casing and diacritics. */
+function normalize(text: string) {
   return [
     ...text
       .toUpperCase()
       .replace(/[ÄÖÜ]/g, (character) => UMLAUTS[character])
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, ""),
-  ].map((character) => GLYPHS[character] ?? null);
+  ];
+}
+
+function toGlyphs(text: string) {
+  return normalize(text).map((character) => GLYPHS[character] ?? null);
+}
+
+/**
+ * The distinct characters this font cannot draw, so a composer can warn instead
+ * of letting drawText swallow them. A space is blank on purpose, not missing.
+ */
+export function unsupportedCharacters(text: string) {
+  return [
+    ...new Set(
+      normalize(text).filter(
+        (character) => character !== " " && !GLYPHS[character],
+      ),
+    ),
+  ];
 }
 
 // One blank column between glyphs, so a glyph slot is GLYPH_WIDTH + 1 wide.
@@ -119,6 +150,17 @@ export function textWidth(text: string, scale: number) {
   const count = toGlyphs(text).length;
 
   return count === 0 ? 0 : ((GLYPH_WIDTH + 1) * count - 1) * scale;
+}
+
+/** A packed 1 bpp image, MSB first, a set bit is ink — the same as the screen. */
+export type Tile = {
+  width: number;
+  height: number;
+  bytes: Uint8Array;
+};
+
+export function tileStride(width: number) {
+  return Math.ceil(width / 8);
 }
 
 /** Largest scale up to maxScale that keeps the text inside maxWidth. */
@@ -133,6 +175,30 @@ export function fitScale(text: string, maxWidth: number, maxScale: number) {
     1,
     Math.min(maxScale, Math.floor(maxWidth / ((GLYPH_WIDTH + 1) * count))),
   );
+}
+
+/**
+ * Largest scale up to maxScale whose wrapped block fits maxWidth by maxHeight.
+ * Never returns 0, so a box too small for even one line still gets drawn.
+ */
+export function fitBlock(
+  text: string,
+  maxWidth: number,
+  maxHeight: number,
+  maxScale: number,
+  lineGap: number,
+) {
+  for (let scale = maxScale; scale > 1; scale--) {
+    const lines = wrapText(text, maxWidth, scale);
+    const height =
+      lines.length * GLYPH_HEIGHT * scale + (lines.length - 1) * lineGap;
+
+    if (height <= maxHeight) {
+      return scale;
+    }
+  }
+
+  return 1;
 }
 
 /** Greedy word wrap. A word wider than maxWidth stays on its own line. */
@@ -182,4 +248,23 @@ export function drawText(
       }
     }
   });
+}
+
+/**
+ * Draws a tile with its top left corner at (x, y). The tile has its own row
+ * stride, which is not the screen's: a 260 wide tile packs into 33 bytes a row,
+ * not 100. setPixel clips, so a tile hanging off the edge is simply cut.
+ */
+export function drawTile(bitmap: Bitmap, tile: Tile, x: number, y: number) {
+  const stride = tileStride(tile.width);
+
+  for (let row = 0; row < tile.height; row++) {
+    for (let column = 0; column < tile.width; column++) {
+      const byte = tile.bytes[row * stride + (column >> 3)];
+
+      if (((byte >> (7 - (column & 7))) & 1) === 1) {
+        bitmap.setPixel(x + column, y + row);
+      }
+    }
+  }
 }

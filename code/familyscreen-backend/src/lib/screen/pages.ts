@@ -1,6 +1,7 @@
 import { getContacts } from "../contacts";
+import { latestMessageFor } from "../messages";
 import { renderHomescreen } from "./homescreen";
-import { renderTestBitmap } from "./test-bitmap";
+import { renderMessage } from "./message";
 import { getEvents } from "../content/events";
 import { getWeather, OTTENSCHLAG, WIEN } from "../content/weather";
 
@@ -48,9 +49,16 @@ export async function getPages(
     },
     ...contacts.map((contact) => ({
       meta: { type: "user" as const, ...contact },
-      // ponytail: placeholder until messages can be composed, then this hands
-      // back the stored messages.bitmapData instead of drawing anything.
-      render: async () => renderTestBitmap(contact.name),
+      // Lazy on purpose: /metadata never pays for this, and /page pays for one.
+      // One query per contact. A DISTINCT ON (sender_user_id) would make it a
+      // single query, worth doing only once contact lists get long.
+      render: async () =>
+        (await latestMessageFor(contact.userId, userId)) ??
+        renderMessage({
+          from: contact.name,
+          sentAt: new Date(),
+          text: "NOCH KEINE NACHRICHT",
+        }),
     })),
   ];
 }
