@@ -42,7 +42,7 @@ const items: readonly NavItem[] = [
   },
   {
     href: '/daily-messages',
-    label: 'Tagesinhalte prüfen',
+    label: 'Daily messages',
     icon: MessageSquareQuote,
   },
 ];

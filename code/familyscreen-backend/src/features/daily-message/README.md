@@ -1,76 +1,99 @@
-# Tagesinhalte: Prüfen, freigeben und löschen
+# Daily messages: review, approve and delete
 
-Die Tagesinhalte liegen in der Tabelle `daily_messages` der vorhandenen
-Anwendungsdatenbank. Schema, Seeds und UI bleiben trotzdem im Feature-Ordner
-gekapselt. Persönliche Nachrichten und Benutzer werden nicht verändert.
+Daily messages live in the `daily_messages` table of the existing application
+database. Schema, seeds and UI still stay inside this feature folder. Personal
+messages and users are not touched.
 
-## Einmalige Einrichtung
+The texts themselves are German, because that is what the FamilyScreen displays.
+Everything around them — this document, the review page and all error messages —
+is English.
 
-Im Backend-Verzeichnis ausführen:
+## One-time setup
+
+Run in the backend directory:
 
 ```powershell
 npm run db:migrate
 npm run db:seed-content
 ```
 
-Der Seed importiert 260 Kandidaten. Neue Einträge haben immer den Status
-`pending` und können daher noch nicht am Gerät erscheinen. Der Seed ist
-idempotent: Er kann erneut ausgeführt werden und überspringt vorhandene Texte.
+The seed imports 260 candidates. New entries always start out as `pending` and
+therefore cannot reach the device yet. The seed is idempotent: it can be run
+again and skips texts that already exist.
 
-## Sprüche manuell prüfen
+## Writing your own daily message
 
-1. Backend starten und im Web-Interface anmelden.
-2. In der Seitenleiste **Tagesinhalte prüfen** öffnen.
-3. Der Filter **Offen** zeigt alle noch ungeprüften Einträge.
-4. Pro Karte Text, Kategorie, Zeichenanzahl und verlinkte Inspirationsquelle
-   kontrollieren. Das technische Maximum sind 110 Zeichen.
-5. **Freigeben** wählen, wenn der Inhalt sprachlich, sachlich und für die
-   Familie passend ist. Erst dann nimmt die tägliche Auswahl ihn auf.
-6. **Ablehnen** wählen, wenn er unpassend, unklar oder doppeldeutig ist. Er
-   bleibt zur Nachvollziehbarkeit gespeichert, wird aber nie angezeigt.
-7. Mit den Filtern **Freigegeben**, **Abgelehnt** und **Alle** kann das Ergebnis
-   jederzeit erneut kontrolliert und auch korrigiert werden.
+Besides the seeded candidates, you can add your own texts to the pool. On the
+**Review daily messages** page, expand **Write your own daily message**, type the
+text and save it.
 
-Wird der gerade für heute ausgewählte Inhalt abgelehnt, wird seine Anzeige
-sofort zurückgesetzt. Beim nächsten Home-Screen-Abruf wählt das Backend einen
-anderen freigegebenen Eintrag.
+- The entry is stored as `approved` right away and records the signed-in user as
+  its reviewer. There is no second click on **Approve**.
+- It gets the category `family`, which keeps it distinguishable from seeded
+  entries.
+- The same limits apply as for seeds: at most 110 characters, and only characters
+  the device font can draw. Both are shown while typing and checked again on the
+  server when saving.
+- The text has to be unique; a text that already exists is rejected.
+- The new entry shows up under the **Approved** filter, not under the default
+  **Pending** filter.
+- On the device it appears on the next calendar day at the earliest, because
+  today is already assigned to another entry. From then on it comes first,
+  because entries that were never shown take precedence.
 
-## Sprüche endgültig löschen
+Rejecting and deleting work the same way for your own entries as for seeds.
 
-Löschen ist bewusst zweistufig, damit ein Fehlklick keinen guten Inhalt
-vernichtet:
+## Reviewing texts by hand
 
-1. Den betreffenden Eintrag zuerst **Ablehnen**.
-2. Den Filter **Abgelehnt** öffnen.
-3. Beim Eintrag **Löschen** wählen.
-4. Die Sicherheitsabfrage bestätigen.
+1. Start the backend and sign in to the web interface.
+2. Open **Daily messages** in the sidebar.
+3. The **Pending** filter lists every entry that has not been reviewed yet.
+4. On each card, check the text, the category, the character count and the linked
+   source of inspiration. The technical maximum is 110 characters.
+5. Choose **Approve** when the content is linguistically correct, factually sound
+   and suitable for the family. Only then does the daily selection consider it.
+6. Choose **Reject** when it is unsuitable, unclear or ambiguous. It stays stored
+   for traceability but is never displayed.
+7. The **Approved**, **Rejected** and **All** filters let you check and correct
+   the outcome again at any time.
 
-Der Server akzeptiert eine Löschung ausschließlich für bereits abgelehnte
-Einträge. Das Löschen ist endgültig. Soll ein Inhalt nur vorübergehend nicht
-angezeigt werden, genügt **Ablehnen**.
+If the entry currently selected for today is rejected, its display is reset
+immediately. On the next home screen request the backend picks another approved
+entry.
 
-`npm run db:seed-content` ist primär für die einmalige Erstbefüllung gedacht.
-Wird der Seed später erneut ausgeführt, wird ein zuvor hart gelöschter
-Seed-Text wieder als offener Entwurf importiert. Soll er auch bei künftigen
-Neuinstallationen verschwinden, zusätzlich den entsprechenden Eintrag aus
-`seed-data.ts` entfernen.
+## Deleting texts permanently
 
-## Tägliche Auswahl
+Deletion is deliberately a two-step process, so a misclick cannot destroy good
+content:
 
-Der erste Backend-Abruf eines Wiener Kalendertags markiert genau einen
-freigegebenen Eintrag mit diesem Datum. Weitere Geräteabrufe zeigen denselben
-Text. Noch nie gezeigte Einträge kommen zuerst, danach die am längsten nicht
-verwendeten. Eine eindeutige Datenbankbedingung verhindert zwei verschiedene
-Tagesinhalte am selben Tag.
+1. **Reject** the entry first.
+2. Open the **Rejected** filter.
+3. Choose **Delete** on the entry.
+4. Confirm the prompt.
 
-Ist die Tabelle nicht erreichbar oder noch nichts freigegeben, erscheint nur
-ein neutraler Statushinweis. Ungeprüfte Inhalte werden niemals als Ersatz
-angezeigt.
+The server accepts a deletion only for entries that were already rejected.
+Deleting is permanent. If a text should merely stop being displayed for a while,
+**Reject** is enough.
 
-## Recherchegrundlage
+`npm run db:seed-content` is mainly meant for the initial import. If the seed is
+run again later, a seed text that was hard-deleted comes back as a pending draft.
+To make it disappear from future installations as well, also remove the matching
+entry from `seed-data.ts`.
 
-Die kurzen Texte wurden eigenständig formuliert und von diesen Ressourcen
-inspiriert; sie bilden keinen kopierten Internetkorpus:
+## Daily selection
+
+The first backend request of a Vienna calendar day marks exactly one approved
+entry with that date. Further device requests show the same text. Entries that
+were never shown come first, then the least recently used ones. A unique database
+constraint prevents two different daily messages on the same day.
+
+If the table is unreachable or nothing has been approved yet, only a neutral
+status note appears. Unreviewed content is never shown as a substitute.
+
+## Research basis
+
+The short texts were written independently and inspired by these resources; they
+are not a copied internet corpus:
 
 - Oberösterreich Tourismus, *Oberösterreichs Mundart*:
   https://medienservice.oberoesterreich.at/oberoesterreich-woerterbuch.html

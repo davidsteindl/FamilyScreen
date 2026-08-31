@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { fallbackDailyMessage } from "./fallback";
 import { DAILY_MESSAGE_SEEDS } from "./seed-data";
 import { chooseDailyCandidate, viennaDateKey } from "./selection";
-import { dailyMessageProblems } from "./validation";
+import {
+  DAILY_MESSAGE_CATEGORIES,
+  DAILY_MESSAGE_MAX_LENGTH,
+  dailyMessageProblems,
+} from "./validation";
 
 assert.equal(DAILY_MESSAGE_SEEDS.length, 260);
 assert.equal(
@@ -16,7 +20,24 @@ for (const seed of DAILY_MESSAGE_SEEDS) {
   assert.deepEqual(dailyMessageProblems(seed.text), [], seed.text);
   assert.equal(seed.status, "pending");
   assert.ok(seed.sourceUrl.startsWith("https://"));
+  // The same list backs the category CHECK constraint in schema.ts.
+  assert.ok(
+    DAILY_MESSAGE_CATEGORIES.includes(seed.category),
+    `unknown category ${seed.category}`,
+  );
 }
+
+// What the authoring form leans on, in the client and in the server action.
+assert.ok(DAILY_MESSAGE_CATEGORIES.includes("family"));
+// Blank text fails the font pattern too, so only the first problem is the one
+// the form reports.
+assert.equal(dailyMessageProblems("   ")[0], "Text is empty");
+assert.equal(dailyMessageProblems("a".repeat(DAILY_MESSAGE_MAX_LENGTH)).length, 0);
+assert.equal(
+  dailyMessageProblems("a".repeat(DAILY_MESSAGE_MAX_LENGTH + 1)).length,
+  1,
+);
+assert.equal(dailyMessageProblems("Schoene Gruesse \u{1F600}").length, 1);
 
 // Vienna crosses into the next day while UTC is still on the prior date.
 assert.equal(viennaDateKey(new Date("2026-08-30T21:30:00Z")), "2026-08-30");

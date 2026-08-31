@@ -5,6 +5,8 @@ export const DAILY_MESSAGE_CATEGORIES = [
   "joke",
   "bonmot",
   "saying",
+  // Written by a signed-in reviewer instead of imported from the seed.
+  "family",
 ] as const;
 
 export type DailyMessageCategory =

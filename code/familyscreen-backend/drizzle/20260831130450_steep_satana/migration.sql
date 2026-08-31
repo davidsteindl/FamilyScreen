@@ -1,0 +1,1 @@
+ALTER TABLE "daily_messages" DROP CONSTRAINT "daily_messages_category_valid", ADD CONSTRAINT "daily_messages_category_valid" CHECK ("category" in ('dialect', 'joke', 'bonmot', 'saying', 'family'));

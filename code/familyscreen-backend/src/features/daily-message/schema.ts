@@ -10,7 +10,16 @@ import {
   unique,
 } from "drizzle-orm/pg-core";
 
-import { DAILY_MESSAGE_MAX_LENGTH } from "./validation";
+import {
+  DAILY_MESSAGE_CATEGORIES,
+  DAILY_MESSAGE_MAX_LENGTH,
+} from "./validation";
+
+// Derived from the constant rather than spelled out a second time, so the
+// validator and the database constraint cannot drift apart.
+const CATEGORY_LITERALS = DAILY_MESSAGE_CATEGORIES.map(
+  (category) => `'${category}'`,
+).join(", ");
 
 /** Kept in its own feature file, but migrated into the existing application DB. */
 export const dailyMessages = pgTable(
@@ -51,7 +60,7 @@ export const dailyMessages = pgTable(
     ),
     check(
       "daily_messages_category_valid",
-      sql`${table.category} in ('dialect', 'joke', 'bonmot', 'saying')`,
+      sql`${table.category} in (${sql.raw(CATEGORY_LITERALS)})`,
     ),
     check(
       "daily_messages_status_valid",
