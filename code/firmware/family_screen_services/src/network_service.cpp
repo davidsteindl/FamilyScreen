@@ -5,7 +5,7 @@
 #include <WiFi.h>
 #include <string.h>
 #include <time.h>
-#include "app_config.h"
+#include "service_config.h"
 #include "secrets_config.h"
 
 namespace family {

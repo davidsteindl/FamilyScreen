@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "app_config.h"
+#include "protocol_config.h"
 
 namespace family {
 

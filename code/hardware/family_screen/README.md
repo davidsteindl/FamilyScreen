@@ -1,5 +1,10 @@
 # Family e-ink screen firmware
 
+The reusable wire protocol, offline cache, network synchronization, and TLS
+trust policy live under `../../firmware`. This project is the replaceable
+hardware/application layer: touch acquisition, stroke generation, framebuffer
+composition, display refresh scheduling, and the Arduino entrypoint.
+
 Offline-first firmware for the LOLIN32, an 800×480 UC8179 monochrome e-ink panel, and a GT911 touch controller.
 
 ## Configure and build

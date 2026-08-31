@@ -1,6 +1,6 @@
 #pragma once
 
-// Verified Let's Encrypt trust anchors used by the FamilyScreen API. Keep X1
+// Public Let's Encrypt trust anchors used by the FamilyScreen API. Keep X1
 // for older chains and Root YR for the Generation Y RSA chain introduced in
 // 2026. Concatenated PEM certificates are supported by WiFiClientSecure.
 static constexpr char FAMILY_LETS_ENCRYPT_ISRG_ROOT_X1_CERT[] = R"CERT(-----BEGIN CERTIFICATE-----

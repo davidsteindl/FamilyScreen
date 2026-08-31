@@ -1,5 +1,7 @@
 #pragma once
 
+// Reusable offline cache and drawing outbox; independent of panel refresh logic.
+
 #include <Arduino.h>
 #include <FS.h>
 #include <HTTPClient.h>

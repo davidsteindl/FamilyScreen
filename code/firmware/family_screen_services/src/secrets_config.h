@@ -1,5 +1,7 @@
 #pragma once
 
+// Secret selection and TLS policy shared by the reusable network service.
+
 #include "api_ca_cert.h"
 
 #if __has_include("secrets.h")
