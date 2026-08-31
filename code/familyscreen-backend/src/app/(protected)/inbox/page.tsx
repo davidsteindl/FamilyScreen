@@ -1,6 +1,9 @@
+import Link from "next/link";
+
 import { auth } from "@/auth";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { BitmapCanvas } from "@/components/bitmap-canvas";
+import { buttonVariants } from "@/components/ui/button";
 import { formatDayHeading, formatTime } from "@/lib/content/calendar";
 import { latestDeviceMessageFor } from "@/lib/messages";
 import { isBlankBitmap, toBase64 } from "@/lib/screen/bitmap";
@@ -20,7 +23,16 @@ export default async function InboxPage() {
 
   return (
     <main className="flex-1 p-8">
-      <h1 className="mb-6 text-lg font-medium">Inbox</h1>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="text-lg font-medium">Inbox</h1>
+
+        <Link
+          href="/inbox/history"
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+        >
+          View history
+        </Link>
+      </div>
 
       {/* Outside the branch below: an empty inbox is exactly the state that
           wants to notice the first drawing arriving. */}

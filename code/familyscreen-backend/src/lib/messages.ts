@@ -1,9 +1,10 @@
-import { and, desc, eq, isNotNull, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, ne, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/db";
 import { messages, users } from "@/db/schema";
 import { getContacts } from "@/lib/contacts";
 import { BITMAP_BYTES } from "@/lib/screen/bitmap";
+import { BLANK_SHA256 } from "@/lib/screen/device-wire";
 
 /**
  * drizzle-orm 1.0.0-rc.4 normalises a bytea parameter with String(), which
@@ -77,6 +78,14 @@ export function latestMessagesTo(recipientUserId: string) {
   );
 }
 
+/** Drawings a physical screen uploaded to this recipient — inbox and history alike. */
+function deviceMessagesTo(recipientUserId: string) {
+  return and(
+    eq(messages.recipientUserId, recipientUserId),
+    isNotNull(messages.sourceDeviceId),
+  );
+}
+
 /**
  * The newest drawing a physical screen uploaded to this recipient, byte for byte
  * as it left the device: the 800x440 content area, without the label header the
@@ -91,12 +100,7 @@ export async function latestDeviceMessageFor(recipientUserId: string) {
     })
     .from(messages)
     .innerJoin(users, eq(users.id, messages.senderUserId))
-    .where(
-      and(
-        eq(messages.recipientUserId, recipientUserId),
-        isNotNull(messages.sourceDeviceId),
-      ),
-    )
+    .where(deviceMessagesTo(recipientUserId))
     .orderBy(desc(messages.id))
     .limit(1);
 
@@ -105,6 +109,87 @@ export async function latestDeviceMessageFor(recipientUserId: string) {
   return bitmap
     ? { bitmap, senderName: row.senderName, createdAt: row.createdAt }
     : null;
+}
+
+/**
+ * Every drawing that ever reached this recipient, newest first — the rows the
+ * inbox only ever shows the top of.
+ *
+ * A cleared screen belongs to the live state, not to a history of drawings, so
+ * it is filtered out by hash: no row has to be read to know it is blank. A row
+ * without a hash is filtered out with it, since ne() is NULL against NULL — the
+ * same behaviour recipientsToNotify already relies on, and device uploads have
+ * carried a hash since the column exists.
+ */
+export async function deviceMessageHistoryFor(
+  recipientUserId: string,
+  { limit, offset }: { limit: number; offset: number },
+) {
+  const where = and(
+    deviceMessagesTo(recipientUserId),
+    ne(messages.contentSha256, BLANK_SHA256),
+  );
+
+  const [rows, [total]] = await Promise.all([
+    db
+      .select({
+        id: messages.id,
+        bitmapData: messages.bitmapData,
+        senderName: users.name,
+        createdAt: messages.createdAt,
+      })
+      .from(messages)
+      .innerJoin(users, eq(users.id, messages.senderUserId))
+      .where(where)
+      .orderBy(desc(messages.id))
+      .limit(limit)
+      .offset(offset),
+    db.select({ value: count() }).from(messages).where(where),
+  ]);
+
+  const items = rows.flatMap((row) => {
+    const bitmap = toBitmap(row.bitmapData);
+
+    return bitmap ? [{ ...row, bitmap }] : [];
+  });
+
+  return { items, total: total?.value ?? 0 };
+}
+
+/** One drawing from that history. Scoped by recipient: a stranger's id is a miss. */
+export async function deviceMessageFor(recipientUserId: string, id: number) {
+  const [row] = await db
+    .select({
+      bitmapData: messages.bitmapData,
+      senderName: users.name,
+      createdAt: messages.createdAt,
+    })
+    .from(messages)
+    .innerJoin(users, eq(users.id, messages.senderUserId))
+    .where(and(deviceMessagesTo(recipientUserId), eq(messages.id, id)))
+    .limit(1);
+
+  const bitmap = toBitmap(row?.bitmapData);
+
+  return bitmap
+    ? { bitmap, senderName: row.senderName, createdAt: row.createdAt }
+    : null;
+}
+
+/**
+ * Which history entry is the one standing on the screens right now. Blanks are
+ * read here rather than filtered, because a cleared screen means no drawing is
+ * current — not that the drawing before the clear still is.
+ */
+export async function currentDeviceMessageId(recipientUserId: string) {
+  const [row] = await db
+    .select({ id: messages.id, contentSha256: messages.contentSha256 })
+    .from(messages)
+    .where(deviceMessagesTo(recipientUserId))
+    .orderBy(desc(messages.id))
+    .limit(1);
+
+  return row && row.contentSha256 !== BLANK_SHA256 ? row.id : null;
 }
 
 export async function insertMessage(

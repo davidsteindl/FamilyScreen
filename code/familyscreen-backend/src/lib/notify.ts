@@ -3,8 +3,7 @@ import { and, eq, gt, isNotNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { messages } from "@/db/schema";
 import { getContacts } from "@/lib/contacts";
-import { BITMAP_BYTES } from "@/lib/screen/bitmap";
-import { sha256Hex } from "@/lib/screen/device-wire";
+import { BLANK_SHA256 } from "@/lib/screen/device-wire";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const REQUEST_TIMEOUT_MS = 5_000;
@@ -15,9 +14,6 @@ const REQUEST_TIMEOUT_MS = 5_000;
  * uploads — without this the family unsubscribes on day one.
  */
 const QUIET_WINDOW_MS = 30 * 60 * 1000;
-
-/** Derived rather than hardcoded: the screen already grew from 400 to 440 rows. */
-const BLANK_SHA256 = sha256Hex(new Uint8Array(BITMAP_BYTES).fill(0xff));
 
 type DrawingNotification = {
   deviceId: string;

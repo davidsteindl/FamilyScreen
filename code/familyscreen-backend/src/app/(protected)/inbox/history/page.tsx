@@ -1,0 +1,136 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import Link from "next/link";
+
+import { auth } from "@/auth";
+import { BitmapCanvas } from "@/components/bitmap-canvas";
+import { buttonVariants } from "@/components/ui/button";
+import { formatDayHeading, formatTime } from "@/lib/content/calendar";
+import { currentDeviceMessageId, deviceMessageHistoryFor } from "@/lib/messages";
+import { toBase64 } from "@/lib/screen/bitmap";
+import { cn } from "@/lib/utils";
+
+const PAGE_SIZE = 12;
+
+export const dynamic = "force-dynamic";
+
+type SearchParams = Promise<{ page?: string }>;
+
+function historyUrl(page: number) {
+  return page > 1 ? `/inbox/history?page=${page}` : "/inbox/history";
+}
+
+export default async function InboxHistoryPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const session = await auth();
+
+  // (protected)/layout.tsx redirects, but this still runs alongside it, so bail
+  // rather than assert: without a session there is nothing to render anyway.
+  if (!session?.user?.id) {
+    return null;
+  }
+
+  const requested = await searchParams;
+  const requestedPage = Number(requested.page ?? "1");
+  const page = Number.isSafeInteger(requestedPage)
+    ? Math.max(1, requestedPage)
+    : 1;
+
+  const [{ items, total }, currentId] = await Promise.all([
+    deviceMessageHistoryFor(session.user.id, {
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
+    }),
+    currentDeviceMessageId(session.user.id),
+  ]);
+
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  return (
+    <main className="min-w-0 flex-1 p-8">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-6">
+          <Link
+            href="/inbox"
+            className="text-sm text-neutral-500 underline underline-offset-2 hover:text-neutral-900"
+          >
+            Back to inbox
+          </Link>
+
+          <h1 className="mt-2 text-xl font-semibold">Drawing history</h1>
+
+          <p className="mt-2 max-w-2xl text-sm text-neutral-600">
+            Every drawing a FamilyScreen has sent you, newest first. A cleared
+            screen is a state, not a drawing, so it only shows in the inbox.
+          </p>
+        </div>
+
+        {/* No AutoRefresh here on purpose: an archive does not change under you,
+            and reloading a dozen bitmaps every 20 seconds would be all cost. */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((item) => (
+            <Link
+              key={item.id}
+              href={`/inbox/${item.id}`}
+              className="rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-colors hover:border-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+            >
+              <BitmapCanvas bitmap={toBase64(item.bitmap)} />
+
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+                {item.id === currentId && (
+                  <span className="rounded-full bg-neutral-100 px-2 py-1">
+                    On the screen now
+                  </span>
+                )}
+
+                <span>
+                  {item.senderName} · {formatDayHeading(item.createdAt)},{" "}
+                  {formatTime(item.createdAt)}
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {items.length === 0 && (
+          <p className="rounded-xl border border-dashed p-8 text-center text-sm text-neutral-500">
+            No drawing has arrived from a FamilyScreen yet.
+          </p>
+        )}
+
+        {pageCount > 1 && (
+          <nav
+            aria-label="Page navigation"
+            className="mt-6 flex items-center justify-between"
+          >
+            <Link
+              href={historyUrl(Math.max(1, page - 1))}
+              aria-disabled={page <= 1}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                page <= 1 && "pointer-events-none opacity-50",
+              )}
+            >
+              <ChevronLeft aria-hidden="true" /> Newer
+            </Link>
+            <span className="text-sm text-neutral-500">
+              Page {Math.min(page, pageCount)} of {pageCount}
+            </span>
+            <Link
+              href={historyUrl(Math.min(pageCount, page + 1))}
+              aria-disabled={page >= pageCount}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                page >= pageCount && "pointer-events-none opacity-50",
+              )}
+            >
+              Older <ChevronRight aria-hidden="true" />
+            </Link>
+          </nav>
+        )}
+      </div>
+    </main>
+  );
+}

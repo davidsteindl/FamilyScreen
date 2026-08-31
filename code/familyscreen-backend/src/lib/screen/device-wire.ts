@@ -1,8 +1,18 @@
 import { createHash } from "node:crypto";
 
+import { BITMAP_BYTES } from "./bitmap";
+
 export function sha256Hex(bytes: Uint8Array) {
   return createHash("sha256").update(bytes).digest("hex");
 }
+
+/**
+ * The hash a cleared screen uploads, so a query can skip blank pages without
+ * reading 44 kB per row. Derived rather than hardcoded: the screen already grew
+ * from 400 to 440 rows. Lives here and not next to isBlankBitmap because that
+ * module is bundled for the browser, which has no node:crypto.
+ */
+export const BLANK_SHA256 = sha256Hex(new Uint8Array(BITMAP_BYTES).fill(0xff));
 
 export function strongEtag(value: string) {
   return `"${value}"`;

@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
 
-import { BITMAP_BYTES, BITMAP_HEIGHT, BITMAP_WIDTH } from "./bitmap";
+import {
+  BITMAP_BYTES,
+  BITMAP_HEIGHT,
+  BITMAP_WIDTH,
+  isBlankBitmap,
+} from "./bitmap";
 import { createBitmap } from "./bitmap-render";
 import {
+  BLANK_SHA256,
   etagMatches,
   readExactBody,
   sha256Hex,
@@ -17,8 +23,16 @@ assert.equal(BITMAP_BYTES, 44_000);
 const blank = createBitmap();
 assert.equal(blank.bytes.byteLength, BITMAP_BYTES);
 assert.ok(blank.bytes.every((byte) => byte === 0xff));
+
+// The history query hides cleared screens by hash instead of reading the bytes,
+// so the constant has to agree with isBlankBitmap on both answers.
+assert.ok(isBlankBitmap(blank.bytes));
+assert.equal(sha256Hex(blank.bytes), BLANK_SHA256);
+
 blank.setPixel(0, 0);
 assert.equal(blank.bytes[0], 0x7f);
+assert.ok(!isBlankBitmap(blank.bytes));
+assert.notEqual(sha256Hex(blank.bytes), BLANK_SHA256);
 
 // A rendered page has to be exactly one framebuffer, or the firmware drops it.
 const page = renderMessage({
