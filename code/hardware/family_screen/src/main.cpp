@@ -147,7 +147,7 @@ void composeCurrentPage(bool cleanupRefresh = false) {
   if (!available && usingFallbackManifest) available = renderLocalDemoContent(page);
   if (!available && page.kind == PageKind::ReadOnly)
     canvas.drawMessage("BITTE EINEN MOMENT", "DIE SEITE KOMMT GLEICH");
-  canvas.drawHeader(page.label);
+  canvas.drawHeader(page.label, page.kind == PageKind::Drawing);
   xSemaphoreGive(framebufferMutex);
   cache.saveSelectedPageId(page.id);
   strokeBounds.reset(); pendingInkBounds.reset(); strokeActive = false;
@@ -166,12 +166,17 @@ void reloadManifestPreservingPage(bool displayFirstRealManifest) {
   ensureLocalDrawingPageLast(manifestScratch);
   char oldId[65] = {};
   if (manifest.count && currentPage < manifest.count) strcpy(oldId, manifest.pages[currentPage].id);
+  const int nextIndex = manifestScratch.find(oldId);
+  const bool visiblePageChanged = oldId[0] && nextIndex >= 0 &&
+                                  !manifest.pages[currentPage].displayContentMatches(
+                                      manifestScratch.pages[nextIndex]);
   manifest = manifestScratch;
   const int preserved = manifest.find(oldId);
   currentPage = displayFirstRealManifest ? 0 : preserved >= 0 ? static_cast<uint8_t>(preserved) : 0;
   const bool removed = oldId[0] && preserved < 0;
   usingFallbackManifest = false;
-  if ((displayFirstRealManifest || removed) && display.isIdle()) composeCurrentPage();
+  if ((displayFirstRealManifest || removed || visiblePageChanged) && display.isIdle())
+    composeCurrentPage();
 }
 
 void mergePendingInk(const Rect& rect) {
@@ -206,6 +211,7 @@ void addStrokeSegment(uint16_t x, uint16_t y) {
   xSemaphoreGive(framebufferMutex);
   lastTouchX = x; lastTouchY = y; drawingDirty = true; drawingChangedAt = millis();
 }
+void handleClear();
 void processTouch(const TouchFrame& frame) {
   if (!isDrawingPage() || pageTransition) {
     if (!frame.count) { strokeActive = false; touchTracker.reset(); }
@@ -213,7 +219,11 @@ void processTouch(const TouchFrame& frame) {
   }
   const TrackedTouchEvent event = touchTracker.update(frame);
   if (event.type == TouchEventType::Start) {
-    if (event.contact.y < kHeaderHeight) { touchTracker.cancelUntilLift(); return; }
+    if (event.contact.y < kHeaderHeight) {
+      if (isHeaderClearAction(event.contact.x, event.contact.y)) handleClear();
+      touchTracker.cancelUntilLift();
+      return;
+    }
     strokeBounds.reset(); strokeActive = true;
     lastTouchX = event.contact.x; lastTouchY = event.contact.y;
     addStrokeSegment(event.contact.x, event.contact.y);
@@ -230,7 +240,7 @@ void handleClear() {
   finishStroke();
   if (hadActiveTouch) touchTracker.cancelUntilLift(); else touchTracker.reset();
   xSemaphoreTake(framebufferMutex, portMAX_DELAY);
-  canvas.clearContentWhite(); canvas.drawHeader(manifest.pages[currentPage].label);
+  canvas.clearContentWhite(); canvas.drawHeader(manifest.pages[currentPage].label, true);
   xSemaphoreGive(framebufferMutex);
   // Clear is authoritative: an older cached bitmap or queued upload must never
   // be able to restore text Grandma explicitly removed.

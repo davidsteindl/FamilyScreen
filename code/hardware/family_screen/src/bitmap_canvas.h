@@ -26,7 +26,7 @@ class BitmapCanvas {
   void fillCircle(int16_t cx, int16_t cy, int16_t radius, bool black);
   void drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
                 int16_t radius, bool black, DirtyBounds* dirty = nullptr);
-  void drawHeader(const char* label);
+  void drawHeader(const char* label, bool showClearAction = false);
   void drawMessage(const char* line1, const char* line2 = nullptr);
  private:
   void fillRect(int16_t x, int16_t y, int16_t width, int16_t height, bool black);

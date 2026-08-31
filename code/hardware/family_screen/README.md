@@ -52,12 +52,12 @@ The manifest contains 1–23 server-owned pages with unique IDs of at most 64 ch
 ## Runtime behavior
 
 - Cached pages switch without waiting for the network. A page-button press also requests a background synchronization.
-- New remote content is cached but does not interrupt the currently visible page; it appears on the next visit.
+- New remote content is cached in the background. If the currently visible page changed, it refreshes automatically after the completed synchronization; changes to other pages appear on the next visit.
 - Drawing uses the first GT911 contact ID until it lifts and ignores other contacts. Dirty areas refresh after each completed stroke.
 - Drawings are saved/uploaded after fifteen idle seconds or before leaving the page. Failed uploads remain in LittleFS and retry with exponential backoff.
 - Wi-Fi connection attempts are bounded to twenty seconds. The radio is rebuilt between attempts and retries forever with a delay that grows from five seconds to five minutes. A lost connection never removes cached pages or queued drawings.
 - API failures retry with bounded exponential backoff instead of hammering the server. Successful manifests are checked every ten minutes; page-button activity requests an immediate background check.
 - The Arduino loop watchdog and a separate network-task heartbeat recover deadlocks by rebooting. All page data and the upload outbox live in LittleFS, so a recovery reboot remains offline-safe.
-- Clear affects only the drawing page. Clear and normal page changes use fast differential updates; startup and every twentieth differential update use a full cleanup refresh to limit ghosting.
+- Clear affects only the drawing page and can be triggered by either the physical button or the `CLEAR` action in that page's header. Clear and normal page changes use fast differential updates. Startup uses a full refresh; differential drawing updates are never promoted to an automatic cleanup refresh while writing.
 
 The checked-in hardware profile uses the GT911 landscape coordinates without swapping or mirroring. Full and partial updates use the same in-memory/API bitmap convention: `1 = white`, `0 = black`.

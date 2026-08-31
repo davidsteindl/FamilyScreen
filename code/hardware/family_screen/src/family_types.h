@@ -14,6 +14,8 @@ struct PageDescriptor {
   char revision[65] = {};
   char sha256[65] = {};
   PageKind kind = PageKind::ReadOnly;
+
+  bool displayContentMatches(const PageDescriptor& other) const;
 };
 
 struct PageManifest {

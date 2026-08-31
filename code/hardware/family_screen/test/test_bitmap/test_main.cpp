@@ -32,6 +32,18 @@ void test_strokes_are_clipped_out_of_header() {
   TEST_ASSERT_TRUE(canvas.isBlack(10, 50));
 }
 
+void test_clear_action_geometry_and_header_rendering() {
+  TEST_ASSERT_FALSE(isHeaderClearAction(kHeaderClearActionLeft - 1, 10));
+  TEST_ASSERT_TRUE(isHeaderClearAction(kHeaderClearActionLeft, 0));
+  TEST_ASSERT_TRUE(isHeaderClearAction(kDisplayWidth - 1, kHeaderHeight - 1));
+  TEST_ASSERT_FALSE(isHeaderClearAction(kHeaderClearActionLeft, kHeaderHeight));
+
+  canvas.drawHeader("OTTOLA");
+  TEST_ASSERT_FALSE(canvas.isBlack(kHeaderClearActionLeft, 10));
+  canvas.drawHeader("OTTOLA", true);
+  TEST_ASSERT_TRUE(canvas.isBlack(kHeaderClearActionLeft, 10));
+}
+
 void test_dirty_rectangle_is_byte_aligned_and_clipped() {
   DirtyBounds dirty;
   dirty.include(13, 42, 2);
@@ -53,6 +65,27 @@ void test_manifest_lookup_and_drawing_page() {
   TEST_ASSERT_EQUAL_INT(2, manifest.find("tobias"));
   TEST_ASSERT_EQUAL_INT(-1, manifest.find("missing"));
   TEST_ASSERT_EQUAL_INT(1, manifest.drawingIndex());
+}
+
+void test_page_display_content_matching() {
+  PageDescriptor current{};
+  strcpy(current.id, "tobias");
+  strcpy(current.label, "Tobias");
+  strcpy(current.revision, "1");
+  strcpy(current.sha256, "first-hash");
+
+  PageDescriptor next = current;
+  strcpy(next.revision, "2");
+  TEST_ASSERT_TRUE(current.displayContentMatches(next));
+
+  strcpy(next.sha256, "second-hash");
+  TEST_ASSERT_FALSE(current.displayContentMatches(next));
+  next = current;
+  strcpy(next.label, "Tobi");
+  TEST_ASSERT_FALSE(current.displayContentMatches(next));
+  next = current;
+  next.kind = PageKind::Drawing;
+  TEST_ASSERT_FALSE(current.displayContentMatches(next));
 }
 
 void test_primary_touch_id_is_retained_and_secondary_is_ignored() {
@@ -78,8 +111,10 @@ int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_pixel_addressing_and_colour);
   RUN_TEST(test_strokes_are_clipped_out_of_header);
+  RUN_TEST(test_clear_action_geometry_and_header_rendering);
   RUN_TEST(test_dirty_rectangle_is_byte_aligned_and_clipped);
   RUN_TEST(test_manifest_lookup_and_drawing_page);
+  RUN_TEST(test_page_display_content_matching);
   RUN_TEST(test_primary_touch_id_is_retained_and_secondary_is_ignored);
   return UNITY_END();
 }
