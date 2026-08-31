@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-import { createDailyMessage } from "./create-action";
 import {
   DAILY_MESSAGE_MAX_LENGTH,
   dailyMessageProblems,
-} from "./validation";
+} from "@/lib/daily-message/rules";
+import { createDailyMessage } from "@/lib/daily-message/actions";
 
 export function CreateDailyMessageForm() {
   const [result, formAction, pending] = useActionState(

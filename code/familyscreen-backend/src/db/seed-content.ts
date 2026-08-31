@@ -1,9 +1,10 @@
 import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/neon-http";
 
-import { DAILY_MESSAGE_SEEDS } from "./seed-data";
+import { dailyMessageProblems } from "@/lib/daily-message/rules";
+
 import { dailyMessages } from "./schema";
-import { dailyMessageProblems } from "./validation";
+import { DAILY_MESSAGE_SEEDS } from "./seed-content-data";
 
 config({ path: ".env.local" });
 

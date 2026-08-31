@@ -4,7 +4,7 @@ import { Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
-import { deleteDailyMessage } from "./review-actions";
+import { deleteDailyMessage } from "@/lib/daily-message/actions";
 
 export function DeleteDailyMessageForm({ id }: { id: number }) {
   return (

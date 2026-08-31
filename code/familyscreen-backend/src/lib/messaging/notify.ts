@@ -2,7 +2,7 @@ import { and, eq, gt, isNotNull, ne } from "drizzle-orm";
 
 import { db } from "@/db";
 import { messages } from "@/db/schema";
-import { getContacts } from "@/lib/contacts";
+import { getContacts } from "./contacts";
 import { BLANK_SHA256 } from "@/lib/screen/device-wire";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";

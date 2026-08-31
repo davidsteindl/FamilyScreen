@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { auth } from "@/auth";
-import { canCommunicate } from "@/lib/contacts";
-import { insertMessage } from "@/lib/messages";
+import { canCommunicate } from "./contacts";
+import { insertMessage } from "./messages";
 import { tileStride } from "@/lib/screen/bitmap-render";
 import {
   IMAGE_MAX_HEIGHT,

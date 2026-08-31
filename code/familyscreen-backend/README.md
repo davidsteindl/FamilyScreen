@@ -19,11 +19,32 @@ npm run dev
 Open `http://localhost:3000`. The web UI is intentionally unchanged; the
 existing Create homescreen route still previews its homescreen bitmap.
 
-The daily Austrian saying uses its own table in the existing PostgreSQL
-database. Visit `/daily-messages` to review its 260 seed candidates. New
-candidates start as pending and never reach the device until a signed-in
-reviewer explicitly approves them. See
-`src/features/daily-message/README.md` for the selection and review rules.
+## Daily messages
+
+The right-hand column of the homescreen shows one short German text per day,
+stored in the `daily_messages` table. `/daily-messages` is the review page.
+
+- Nothing reaches the device without an explicit approval. The 260 seeded
+  candidates start as pending; the fallback when nothing is approved is a
+  neutral status line, never an unreviewed text.
+- **Write your own daily message** on the same page adds a text of your own. It
+  is stored as approved right away, records the signed-in user as its reviewer
+  and gets the category `family`.
+- Every text is capped at 110 characters and must consist of characters the
+  device font can draw. `dailyMessageProblems` in
+  `src/lib/daily-message/rules.ts` is the single source for that rule:
+  it backs the live hint in the form, the server action and the database CHECK
+  constraint in `src/db/schema.ts`.
+- The first request of a Vienna calendar day claims exactly one approved entry
+  for that date, so every device sees the same text all day. Entries never shown
+  come first, then the least recently used. A unique constraint on the date
+  column enforces one message per day even under concurrent requests.
+- Deleting takes two steps: reject first, then delete from the Rejected filter.
+  The server refuses to delete anything that is not already rejected.
+
+The seed texts were written independently and are only inspired by public
+dictionaries of Austrian German. Each entry carries its own source name and URL
+in `src/db/seed-content-data.ts`; the review page links them per card.
 
 Weather comes from Open-Meteo and is cached for 15 minutes. If it is unreachable,
 the homescreen still renders using deterministic mock weather. Appointments and

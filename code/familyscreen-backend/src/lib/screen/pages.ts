@@ -1,9 +1,9 @@
-import { getContacts } from "../contacts";
+import { getContacts } from "../messaging/contacts";
 import { getEvents } from "../content/events";
 import { getWeather, mockWeather, OTTENSCHLAG, WIEN } from "../content/weather";
-import { latestMessagesTo } from "../messages";
-import { fallbackDailyMessage } from "../../features/daily-message/fallback";
-import { getDailyMessage } from "../../features/daily-message/service";
+import { latestMessagesTo } from "../messaging/messages";
+import { fallbackDailyMessage } from "../daily-message/selection";
+import { getDailyMessage } from "../daily-message/queries";
 import { renderHomescreen } from "./homescreen";
 import { renderNoMessage } from "./message";
 

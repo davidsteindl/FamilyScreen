@@ -1,18 +1,16 @@
-import { asc, count, desc, eq } from "drizzle-orm";
 import { Check, ChevronLeft, ChevronRight, ExternalLink, X } from "lucide-react";
 import Link from "next/link";
 
+import { CreateDailyMessageForm } from "@/components/daily-message/create-form";
+import { DeleteDailyMessageForm } from "@/components/daily-message/delete-form";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { db } from "@/db";
-import { CreateDailyMessageForm } from "@/features/daily-message/create-message-form";
-import { DeleteDailyMessageForm } from "@/features/daily-message/delete-message-form";
-import { cn } from "@/lib/utils";
-import { reviewDailyMessage } from "@/features/daily-message/review-actions";
-import { dailyMessages } from "@/features/daily-message/schema";
 import {
   DAILY_MESSAGE_MAX_LENGTH,
   type DailyMessageStatus,
-} from "@/features/daily-message/validation";
+} from "@/lib/daily-message/rules";
+import { reviewDailyMessage } from "@/lib/daily-message/actions";
+import { dailyMessageCounts, listDailyMessages } from "@/lib/daily-message/queries";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
 const STATUSES = ["pending", "approved", "rejected"] as const;
@@ -48,20 +46,9 @@ async function loadReviewData(
   page: number,
 ) {
   try {
-    const where = status === "all" ? undefined : eq(dailyMessages.status, status);
     const [items, totals] = await Promise.all([
-      db
-        .select()
-        .from(dailyMessages)
-        .where(where)
-        .orderBy(asc(dailyMessages.createdAt), asc(dailyMessages.id))
-        .limit(PAGE_SIZE)
-        .offset((page - 1) * PAGE_SIZE),
-      db
-        .select({ status: dailyMessages.status, value: count() })
-        .from(dailyMessages)
-        .groupBy(dailyMessages.status)
-        .orderBy(desc(dailyMessages.status)),
+      listDailyMessages(status, PAGE_SIZE, (page - 1) * PAGE_SIZE),
+      dailyMessageCounts(),
     ]);
 
     return { items, totals };

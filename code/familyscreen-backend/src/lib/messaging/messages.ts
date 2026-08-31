@@ -2,7 +2,7 @@ import { and, count, desc, eq, isNotNull, ne, sql, type SQL } from "drizzle-orm"
 
 import { db } from "@/db";
 import { messages, users } from "@/db/schema";
-import { getContacts } from "@/lib/contacts";
+import { getContacts } from "./contacts";
 import { BITMAP_BYTES } from "@/lib/screen/bitmap";
 import { BLANK_SHA256 } from "@/lib/screen/device-wire";
 

@@ -5,7 +5,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { BitmapCanvas } from "@/components/bitmap-canvas";
 import { buttonVariants } from "@/components/ui/button";
 import { formatDayHeading, formatTime } from "@/lib/content/calendar";
-import { latestDeviceMessageFor } from "@/lib/messages";
+import { latestDeviceMessageFor } from "@/lib/messaging/messages";
 import { isBlankBitmap, toBase64 } from "@/lib/screen/bitmap";
 
 export default async function InboxPage() {

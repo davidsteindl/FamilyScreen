@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { BitmapCanvas } from "@/components/bitmap-canvas";
 import { buttonVariants } from "@/components/ui/button";
 import { formatDayHeading, formatTime } from "@/lib/content/calendar";
-import { currentDeviceMessageId, deviceMessageHistoryFor } from "@/lib/messages";
+import { currentDeviceMessageId, deviceMessageHistoryFor } from "@/lib/messaging/messages";
 import { toBase64 } from "@/lib/screen/bitmap";
 import { cn } from "@/lib/utils";
 

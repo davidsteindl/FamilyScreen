@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { BitmapCanvas } from "@/components/bitmap-canvas";
 import { formatDayHeading, formatTime } from "@/lib/content/calendar";
-import { deviceMessageFor } from "@/lib/messages";
+import { deviceMessageFor } from "@/lib/messaging/messages";
 import { isBlankBitmap, toBase64 } from "@/lib/screen/bitmap";
 
 export const dynamic = "force-dynamic";

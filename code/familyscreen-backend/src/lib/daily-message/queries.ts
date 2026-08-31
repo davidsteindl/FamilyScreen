@@ -1,9 +1,12 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-
-import { dailyMessages } from "./schema";
-import { chooseDailyCandidate, viennaDateKey } from "./selection";
+import { dailyMessages } from "@/db/schema";
+import {
+  chooseDailyCandidate,
+  viennaDateKey,
+} from "./selection";
+import type { DailyMessageStatus } from "./rules";
 
 async function messageForDate(displayDate: string) {
   const [message] = await db
@@ -89,4 +92,28 @@ export async function getDailyMessage(date = new Date()) {
 
     throw error;
   }
+}
+
+/** One page of the review list, oldest first so the queue is worked front to back. */
+export function listDailyMessages(
+  status: DailyMessageStatus | "all",
+  limit: number,
+  offset: number,
+) {
+  return db
+    .select()
+    .from(dailyMessages)
+    .where(status === "all" ? undefined : eq(dailyMessages.status, status))
+    .orderBy(asc(dailyMessages.createdAt), asc(dailyMessages.id))
+    .limit(limit)
+    .offset(offset);
+}
+
+/** Totals for the review filter chips. */
+export function dailyMessageCounts() {
+  return db
+    .select({ status: dailyMessages.status, value: count() })
+    .from(dailyMessages)
+    .groupBy(dailyMessages.status)
+    .orderBy(desc(dailyMessages.status));
 }

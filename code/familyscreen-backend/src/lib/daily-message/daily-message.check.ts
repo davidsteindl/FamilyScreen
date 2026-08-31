@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
 
-import { fallbackDailyMessage } from "./fallback";
-import { DAILY_MESSAGE_SEEDS } from "./seed-data";
-import { chooseDailyCandidate, viennaDateKey } from "./selection";
+import { DAILY_MESSAGE_SEEDS } from "@/db/seed-content-data";
+import {
+  chooseDailyCandidate,
+  fallbackDailyMessage,
+  viennaDateKey,
+} from "./selection";
 import {
   DAILY_MESSAGE_CATEGORIES,
   DAILY_MESSAGE_MAX_LENGTH,
   dailyMessageProblems,
-} from "./validation";
+} from "./rules";
 
 assert.equal(DAILY_MESSAGE_SEEDS.length, 260);
 assert.equal(

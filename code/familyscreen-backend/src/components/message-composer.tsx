@@ -16,7 +16,7 @@ import {
   renderMessage,
   renderNoMessage,
 } from "@/lib/screen/message";
-import { sendMessage } from "@/lib/send-message";
+import { sendMessage } from "@/lib/messaging/send-message";
 
 const MAX_LENGTH = 280;
 

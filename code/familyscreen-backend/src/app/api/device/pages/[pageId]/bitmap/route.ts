@@ -1,8 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 
 import requireDevice from "@/lib/auth/require-device";
-import { storeDeviceBroadcast } from "@/lib/messages";
-import { notifyDrawingArrived } from "@/lib/notify";
+import { storeDeviceBroadcast } from "@/lib/messaging/messages";
+import { notifyDrawingArrived } from "@/lib/messaging/notify";
 import { BITMAP_BYTES, isBlankBitmap } from "@/lib/screen/bitmap";
 import {
   etagMatches,

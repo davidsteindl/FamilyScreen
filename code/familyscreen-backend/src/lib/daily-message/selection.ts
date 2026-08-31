@@ -1,13 +1,12 @@
 import { createHash } from "node:crypto";
 
-import { DateTime } from "luxon";
-
-const TIME_ZONE = "Europe/Vienna";
+import { local } from "../content/calendar";
 
 type Candidate = { id: number; text: string };
 
+/** toISODate ignores the locale local() sets, so this is the plain Vienna day. */
 export function viennaDateKey(date: Date) {
-  return DateTime.fromJSDate(date, { zone: TIME_ZONE }).toISODate();
+  return local(date).toISODate();
 }
 
 function dailyTieBreaker(dateKey: string, id: number) {
@@ -36,3 +35,9 @@ export function chooseDailyCandidate(
   })[0];
 }
 
+const FALLBACK_MESSAGE = "Heute wartet der Tagesgruß noch auf seine Freigabe";
+
+/** A status placeholder, never an unreviewed substitute for editorial content. */
+export function fallbackDailyMessage() {
+  return FALLBACK_MESSAGE;
+}

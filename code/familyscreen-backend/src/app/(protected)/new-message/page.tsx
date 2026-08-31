@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { MessageComposer } from "@/components/message-composer";
-import { getContacts } from "@/lib/contacts";
-import { latestMessagesFrom } from "@/lib/messages";
+import { getContacts } from "@/lib/messaging/contacts";
+import { latestMessagesFrom } from "@/lib/messaging/messages";
 import { isBlankBitmap, toBase64 } from "@/lib/screen/bitmap";
 
 export default async function NewMessagePage() {

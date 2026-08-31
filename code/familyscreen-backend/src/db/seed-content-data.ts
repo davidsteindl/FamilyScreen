@@ -1,4 +1,4 @@
-import type { DailyMessageCategory } from "./validation";
+import type { DailyMessageCategory } from "@/lib/daily-message/rules";
 
 type SeedSource = { sourceName: string; sourceUrl: string };
 
