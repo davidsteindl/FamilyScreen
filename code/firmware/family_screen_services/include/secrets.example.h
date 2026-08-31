@@ -1,6 +1,6 @@
 #pragma once
 
-// Copy this file to include/secrets.h. That file is ignored by Git.
+// Copy this file to secrets.h in this directory. That file is ignored by Git.
 #define FAMILY_WIFI_SSID "your-wifi"
 #define FAMILY_WIFI_PASSWORD "your-password"
 #define FAMILY_DEVICE_ID "ottola-screen-1"

@@ -9,7 +9,7 @@ Offline-first firmware for the LOLIN32, an 800×480 UC8179 monochrome e-ink pane
 
 ## Configure and build
 
-1. Copy `include/secrets.example.h` to `include/secrets.h` and enter the Wi-Fi, API base URL, and bearer token. The real secrets file is ignored by Git. The checked-in ISRG Root X1 certificate validates the current Let's Encrypt API certificate; do not enable insecure HTTPS.
+1. Copy `../../firmware/family_screen_services/include/secrets.example.h` to `secrets.h` beside it and enter the Wi-Fi, API base URL, and bearer token. The real secrets file is ignored by Git. The checked-in ISRG Root X1 certificate validates the current Let's Encrypt API certificate; do not enable insecure HTTPS.
 2. Build with `pio run` and upload with `pio run --target upload`.
 3. Watch the first twenty touch samples at 115200 baud. If the reported screen coordinates do not match the touched corners, set `FAMILY_TOUCH_SWAP_XY`, `FAMILY_TOUCH_MIRROR_X`, or `FAMILY_TOUCH_MIRROR_Y` in `platformio.ini` build flags.
 4. Run host-side logic tests with `pio test -e native`.
