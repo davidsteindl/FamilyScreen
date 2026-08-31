@@ -32,6 +32,18 @@ void test_strokes_are_clipped_out_of_header() {
   TEST_ASSERT_TRUE(canvas.isBlack(10, 50));
 }
 
+void test_clear_action_geometry_and_header_rendering() {
+  TEST_ASSERT_FALSE(isHeaderClearAction(kHeaderClearActionLeft - 1, 10));
+  TEST_ASSERT_TRUE(isHeaderClearAction(kHeaderClearActionLeft, 0));
+  TEST_ASSERT_TRUE(isHeaderClearAction(kDisplayWidth - 1, kHeaderHeight - 1));
+  TEST_ASSERT_FALSE(isHeaderClearAction(kHeaderClearActionLeft, kHeaderHeight));
+
+  canvas.drawHeader("OTTOLA");
+  TEST_ASSERT_FALSE(canvas.isBlack(kHeaderClearActionLeft, 10));
+  canvas.drawHeader("OTTOLA", true);
+  TEST_ASSERT_TRUE(canvas.isBlack(kHeaderClearActionLeft, 10));
+}
+
 void test_dirty_rectangle_is_byte_aligned_and_clipped() {
   DirtyBounds dirty;
   dirty.include(13, 42, 2);
@@ -99,6 +111,7 @@ int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_pixel_addressing_and_colour);
   RUN_TEST(test_strokes_are_clipped_out_of_header);
+  RUN_TEST(test_clear_action_geometry_and_header_rendering);
   RUN_TEST(test_dirty_rectangle_is_byte_aligned_and_clipped);
   RUN_TEST(test_manifest_lookup_and_drawing_page);
   RUN_TEST(test_page_display_content_matching);

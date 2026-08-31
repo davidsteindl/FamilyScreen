@@ -8,6 +8,8 @@ namespace family {
 constexpr uint16_t kDisplayWidth = 800;
 constexpr uint16_t kDisplayHeight = 480;
 constexpr uint16_t kHeaderHeight = 40;
+constexpr uint16_t kHeaderClearActionWidth = 128;
+constexpr uint16_t kHeaderClearActionLeft = kDisplayWidth - kHeaderClearActionWidth;
 constexpr uint16_t kContentHeight = kDisplayHeight - kHeaderHeight;
 constexpr size_t kBytesPerRow = kDisplayWidth / 8;
 constexpr size_t kFramebufferBytes = kBytesPerRow * kDisplayHeight;
@@ -47,6 +49,10 @@ constexpr uint32_t kNetworkTaskStallRestartMs = 2UL * 60UL * 1000UL;
 constexpr uint32_t kButtonDebounceMs = 45;
 // Radius 1 ergibt einen kompakten, etwa drei Pixel breiten Stiftstrich.
 constexpr uint8_t kBrushRadius = 1;
+
+constexpr bool isHeaderClearAction(uint16_t x, uint16_t y) {
+  return x >= kHeaderClearActionLeft && x < kDisplayWidth && y < kHeaderHeight;
+}
 
 // The UC8179 DDX setting is configured so its monochrome RAM uses the public
 // bitmap format directly (1=white, 0=black) in full and partial modes.

@@ -101,10 +101,20 @@ void BitmapCanvas::drawText(int16_t x, int16_t y, const char* text, uint8_t scal
     drawChar(x, y, *text++, scale); x += 6 * scale;
   }
 }
-void BitmapCanvas::drawHeader(const char* label) {
+void BitmapCanvas::drawHeader(const char* label, bool showClearAction) {
   fillRect(0, 0, kDisplayWidth, kHeaderHeight, false);
   fillRect(0, kHeaderHeight - 2, kDisplayWidth, 2, true);
   drawText(12, 8, label ? label : "SEITE", 3);
+  if (showClearAction) {
+    // Redraw the action area so a long page label cannot run underneath it.
+    fillRect(kHeaderClearActionLeft, 0, kHeaderClearActionWidth, kHeaderHeight - 2, false);
+    fillRect(kHeaderClearActionLeft, 0, 2, kHeaderHeight, true);
+    // A five-letter scale-3 label is 87 pixels wide including inter-letter gaps.
+    constexpr int16_t kClearLabelWidth = 87;
+    const int16_t clearLabelX = kHeaderClearActionLeft +
+                                (kHeaderClearActionWidth - kClearLabelWidth) / 2;
+    drawText(clearLabelX, 8, "CLEAR", 3);
+  }
 }
 void BitmapCanvas::drawMessage(const char* line1, const char* line2) {
   clearContentWhite(); drawText(40, 180, line1 ? line1 : "BITTE EINEN MOMENT", 4);
