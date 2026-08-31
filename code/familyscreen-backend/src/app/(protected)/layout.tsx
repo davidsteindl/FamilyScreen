@@ -16,7 +16,11 @@ export default async function ProtectedLayout({
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      {children}
+
+      {/* The one place the page chrome lives, so no route can drift out of
+          step: same padding everywhere, and min-w-0 keeps wide content from
+          stretching the row instead of scrolling inside it. */}
+      <main className="min-w-0 flex-1 p-8">{children}</main>
     </div>
   );
 }

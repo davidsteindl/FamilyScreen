@@ -7,7 +7,7 @@ export default async function CreateHomescreenPage() {
   const bitmap = await renderHome().then(toBase64, () => undefined);
 
   return (
-    <main className="flex-1 p-8">
+    <>
       <h1 className="mb-6 text-lg font-medium">Create homescreen</h1>
 
       {!bitmap && (
@@ -17,6 +17,6 @@ export default async function CreateHomescreenPage() {
       )}
 
       <BitmapCanvas bitmap={bitmap} className="max-w-3xl" />
-    </main>
+    </>
   );
 }

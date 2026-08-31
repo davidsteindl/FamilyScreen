@@ -22,7 +22,7 @@ export default async function InboxPage() {
   const cleared = message ? isBlankBitmap(message.bitmap) : false;
 
   return (
-    <main className="flex-1 p-8">
+    <>
       <div className="mb-6 flex items-center justify-between gap-4">
         <h1 className="text-lg font-medium">Inbox</h1>
 
@@ -62,6 +62,6 @@ export default async function InboxPage() {
           />
         </>
       )}
-    </main>
+    </>
   );
 }

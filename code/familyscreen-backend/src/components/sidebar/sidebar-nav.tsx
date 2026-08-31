@@ -12,7 +12,6 @@ import Link from 'next/link';
 import { useSelectedLayoutSegments } from 'next/navigation';
 
 type NavItem = {
-  segment: string;
   href: `/${string}`;
   label: string;
   icon: LucideIcon;
@@ -21,32 +20,27 @@ type NavItem = {
 
 const items: readonly NavItem[] = [
   {
-    segment: 'inbox',
     href: '/inbox',
     label: 'Inbox',
     icon: Inbox,
     badge: true,
   },
   {
-    segment: 'sent',
     href: '/sent',
     label: 'Sent',
     icon: Send,
   },
   {
-    segment: 'new message',
     href: '/new-message',
     label: 'New message',
     icon: PenLine,
   },
   {
-    segment: 'create-homescreen',
     href: '/create-homescreen',
     label: 'Create homescreen',
     icon: LayoutTemplate,
   },
   {
-    segment: 'daily-messages',
     href: '/daily-messages',
     label: 'Tagesinhalte prüfen',
     icon: MessageSquareQuote,
@@ -61,12 +55,16 @@ export default function SidebarNav({ unread }: SidebarNavProps) {
   const segments = useSelectedLayoutSegments();
 
   const activeSegment = segments.find((segment) => !segment.startsWith('('));
+
   return (
     <nav aria-label="Message navigation">
       <ul className="flex flex-col gap-1">
         {items.map((item) => {
           const Icon = item.icon;
-          const active = activeSegment === item.segment;
+          // Read off the href rather than spelled out a second time, so an item
+          // cannot drift out of sync with the route it points at. Nested pages
+          // such as /inbox/history keep their top-level item highlighted.
+          const active = activeSegment === item.href.slice(1);
 
           return (
             <li key={item.href}>

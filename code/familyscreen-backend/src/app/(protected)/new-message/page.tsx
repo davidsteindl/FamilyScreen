@@ -42,7 +42,7 @@ export default async function NewMessagePage() {
   );
 
   return (
-    <main className="flex-1 p-8">
+    <>
       <h1 className="mb-6 text-lg font-medium">New message</h1>
 
       <MessageComposer
@@ -50,6 +50,6 @@ export default async function NewMessagePage() {
         senderName={session.user.name ?? ""}
         live={live}
       />
-    </main>
+    </>
   );
 }

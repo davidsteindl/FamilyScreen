@@ -39,7 +39,7 @@ export default async function InboxMessagePage({
   const cleared = isBlankBitmap(message.bitmap);
 
   return (
-    <main className="flex-1 p-8">
+    <>
       <Link
         href="/inbox/history"
         className="text-sm text-neutral-500 underline underline-offset-2 hover:text-neutral-900"
@@ -58,6 +58,6 @@ export default async function InboxMessagePage({
       </div>
 
       <BitmapCanvas bitmap={toBase64(message.bitmap)} className="max-w-3xl" />
-    </main>
+    </>
   );
 }
