@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import requireDevice from "@/lib/auth/require-device";
 import { storeDeviceBroadcast } from "@/lib/messaging/messages";
 import { notifyDrawingArrived } from "@/lib/messaging/notify";
+import { deviceDisplayName } from "@/lib/messaging/device-display-name";
 import { BITMAP_BYTES, isBlankBitmap } from "@/lib/screen/bitmap";
 import {
   etagMatches,
@@ -156,7 +157,7 @@ export async function PUT(
     await notifyDrawingArrived({
       deviceId: device.id,
       senderUserId: device.userId,
-      senderName: device.userName,
+      senderName: deviceDisplayName(device.deviceName, device.userName),
       contentSha256: actualHash,
       // The host the screen just uploaded to, so the link needs no configuring.
       inboxUrl: new URL("/inbox", request.url).toString(),

@@ -1,8 +1,9 @@
 import { and, count, desc, eq, isNotNull, ne, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/db";
-import { messages, users } from "@/db/schema";
+import { devices, messages, users } from "@/db/schema";
 import { getContacts } from "./contacts";
+import { deviceDisplayName } from "./device-display-name";
 import { BITMAP_BYTES } from "@/lib/screen/bitmap";
 import { BLANK_SHA256 } from "@/lib/screen/device-wire";
 
@@ -79,11 +80,15 @@ export function latestMessagesTo(recipientUserId: string) {
 }
 
 /** Drawings a physical screen uploaded to this recipient — inbox and history alike. */
-function deviceMessagesTo(recipientUserId: string) {
-  return and(
+function deviceMessagesTo(recipientUserId: string, sourceDeviceId?: string) {
+  const recipientFilter = and(
     eq(messages.recipientUserId, recipientUserId),
     isNotNull(messages.sourceDeviceId),
   );
+
+  return sourceDeviceId
+    ? and(recipientFilter, eq(messages.sourceDeviceId, sourceDeviceId))
+    : recipientFilter;
 }
 
 /**
@@ -91,24 +96,42 @@ function deviceMessagesTo(recipientUserId: string) {
  * as it left the device: the 800x440 content area, without the label header the
  * firmware draws on top of it locally.
  */
-export async function latestDeviceMessageFor(recipientUserId: string) {
-  const [row] = await db
-    .select({
+export async function latestDeviceMessagesFor(recipientUserId: string) {
+  const rows = await db
+    .selectDistinctOn([messages.sourceDeviceId], {
+      id: messages.id,
+      sourceDeviceId: devices.id,
       bitmapData: messages.bitmapData,
       senderName: users.name,
+      sourceDeviceName: devices.name,
       createdAt: messages.createdAt,
     })
     .from(messages)
     .innerJoin(users, eq(users.id, messages.senderUserId))
+    .innerJoin(devices, eq(devices.id, messages.sourceDeviceId))
     .where(deviceMessagesTo(recipientUserId))
-    .orderBy(desc(messages.id))
-    .limit(1);
+    .orderBy(messages.sourceDeviceId, desc(messages.id));
 
-  const bitmap = toBitmap(row?.bitmapData);
+  return rows
+    .flatMap((row) => {
+      const bitmap = toBitmap(row.bitmapData);
 
-  return bitmap
-    ? { bitmap, senderName: row.senderName, createdAt: row.createdAt }
-    : null;
+      return bitmap
+        ? [
+            {
+              id: row.id,
+              sourceDeviceId: row.sourceDeviceId,
+              bitmap,
+              senderName: deviceDisplayName(
+                row.sourceDeviceName,
+                row.senderName,
+              ),
+              createdAt: row.createdAt,
+            },
+          ]
+        : [];
+    })
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 /**
@@ -123,10 +146,14 @@ export async function latestDeviceMessageFor(recipientUserId: string) {
  */
 export async function deviceMessageHistoryFor(
   recipientUserId: string,
-  { limit, offset }: { limit: number; offset: number },
+  {
+    limit,
+    offset,
+    sourceDeviceId,
+  }: { limit: number; offset: number; sourceDeviceId?: string },
 ) {
   const where = and(
-    deviceMessagesTo(recipientUserId),
+    deviceMessagesTo(recipientUserId, sourceDeviceId),
     ne(messages.contentSha256, BLANK_SHA256),
   );
 
@@ -134,12 +161,15 @@ export async function deviceMessageHistoryFor(
     db
       .select({
         id: messages.id,
+        sourceDeviceId: devices.id,
         bitmapData: messages.bitmapData,
         senderName: users.name,
+        sourceDeviceName: devices.name,
         createdAt: messages.createdAt,
       })
       .from(messages)
       .innerJoin(users, eq(users.id, messages.senderUserId))
+      .innerJoin(devices, eq(devices.id, messages.sourceDeviceId))
       .where(where)
       .orderBy(desc(messages.id))
       .limit(limit)
@@ -150,7 +180,20 @@ export async function deviceMessageHistoryFor(
   const items = rows.flatMap((row) => {
     const bitmap = toBitmap(row.bitmapData);
 
-    return bitmap ? [{ ...row, bitmap }] : [];
+    return bitmap
+      ? [
+          {
+            id: row.id,
+            sourceDeviceId: row.sourceDeviceId,
+            bitmap,
+            senderName: deviceDisplayName(
+              row.sourceDeviceName,
+              row.senderName,
+            ),
+            createdAt: row.createdAt,
+          },
+        ]
+      : [];
   });
 
   return { items, total: total?.value ?? 0 };
@@ -161,18 +204,26 @@ export async function deviceMessageFor(recipientUserId: string, id: number) {
   const [row] = await db
     .select({
       bitmapData: messages.bitmapData,
+      sourceDeviceId: devices.id,
       senderName: users.name,
+      sourceDeviceName: devices.name,
       createdAt: messages.createdAt,
     })
     .from(messages)
     .innerJoin(users, eq(users.id, messages.senderUserId))
+    .innerJoin(devices, eq(devices.id, messages.sourceDeviceId))
     .where(and(deviceMessagesTo(recipientUserId), eq(messages.id, id)))
     .limit(1);
 
   const bitmap = toBitmap(row?.bitmapData);
 
   return bitmap
-    ? { bitmap, senderName: row.senderName, createdAt: row.createdAt }
+    ? {
+        bitmap,
+        sourceDeviceId: row.sourceDeviceId,
+        senderName: deviceDisplayName(row.sourceDeviceName, row.senderName),
+        createdAt: row.createdAt,
+      }
     : null;
 }
 
@@ -181,15 +232,36 @@ export async function deviceMessageFor(recipientUserId: string, id: number) {
  * read here rather than filtered, because a cleared screen means no drawing is
  * current — not that the drawing before the clear still is.
  */
-export async function currentDeviceMessageId(recipientUserId: string) {
+export async function currentDeviceMessageId(
+  recipientUserId: string,
+  sourceDeviceId?: string,
+) {
   const [row] = await db
     .select({ id: messages.id, contentSha256: messages.contentSha256 })
     .from(messages)
-    .where(deviceMessagesTo(recipientUserId))
+    .where(deviceMessagesTo(recipientUserId, sourceDeviceId))
     .orderBy(desc(messages.id))
     .limit(1);
 
   return row && row.contentSha256 !== BLANK_SHA256 ? row.id : null;
+}
+
+/** A source label, scoped through a message received by this user. */
+export async function deviceMessageSourceFor(
+  recipientUserId: string,
+  sourceDeviceId: string,
+) {
+  const [row] = await db
+    .select({ senderName: users.name, sourceDeviceName: devices.name })
+    .from(messages)
+    .innerJoin(users, eq(users.id, messages.senderUserId))
+    .innerJoin(devices, eq(devices.id, messages.sourceDeviceId))
+    .where(deviceMessagesTo(recipientUserId, sourceDeviceId))
+    .limit(1);
+
+  return row
+    ? deviceDisplayName(row.sourceDeviceName, row.senderName)
+    : null;
 }
 
 export async function insertMessage(

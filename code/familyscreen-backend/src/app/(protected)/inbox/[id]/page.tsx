@@ -41,7 +41,7 @@ export default async function InboxMessagePage({
   return (
     <>
       <Link
-        href="/inbox/history"
+        href={`/inbox/history?device=${message.sourceDeviceId}`}
         className="text-sm text-neutral-500 underline underline-offset-2 hover:text-neutral-900"
       >
         Back to history

@@ -7,10 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx src/lib/daily-message/daily-message.check.ts && tsx src/lib/screen/homescreen.check.ts && tsx src/lib/screen/message.check.ts && tsx src/lib/screen/device-wire.check.ts",
+    "test": "tsx src/lib/daily-message/daily-message.check.ts && tsx src/lib/screen/homescreen.check.ts && tsx src/lib/screen/message.check.ts && tsx src/lib/screen/device-wire.check.ts && tsx src/lib/messaging/device-display-name.check.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
+    "db:register-device": "tsx src/db/register-device.ts",
     "db:studio": "drizzle-kit studio",
     "db:seed-content": "tsx src/db/seed-content.ts"
   },
