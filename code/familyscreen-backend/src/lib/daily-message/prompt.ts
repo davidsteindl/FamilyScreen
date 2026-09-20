@@ -143,11 +143,18 @@ Regeln:
 - Erlaubt sind nur Buchstaben, Ziffern, Leerzeichen und . , : ; ! ? ( ) " ' + % & / _ -
   Keine Emojis, keine Gedankenstriche, kein Markdown, keine Anfuehrungszeichen um
   den ganzen Satz, keine Zeilenumbrueche.
-- Warm, alltagsnah, trocken. Keine Motivationsfloskeln, kein Pathos.
+- Warm, alltagsnah, freundlich im Grundton. Trockener Humor ist willkommen.
+- Weder Zuckerguss noch Jammern. Keine Motivationsfloskeln, kein Pathos, keine
+  heile Welt, aber auch nicht klagen oder wehmuetig werden: nicht ueber
+  Montage, Wetter, Muedigkeit, Arbeit oder das Aelterwerden. Ein muehsamer Tag
+  darf vorkommen, aber mit einem praktischen Hinweis oder einem
+  Augenzwinkern, nie als Beschwerde.
+- "Der Montag zieht sich wie ein Kaugummi" waere so ein Satz, der nicht passt:
+  er stellt nichts fest und hebt nichts, er noergelt nur.
 - Erfinde nichts: keine Termine, Uhrzeiten, Orte, Namen, Zahlen oder Wetterangaben,
   die nicht in den Daten stehen.
-- Keine Politik, Religion, Werbung, Gesundheits- oder Finanztipps,,
-  keine Links, keine Marken.
+- Keine Politik, Religion, Werbung, Gesundheits- oder Finanztipps, keine
+  Nachrichten, keine Links, keine Marken.
 - Nenne einen Namen nur, wenn er unter Termine steht. Die Namen unter Haushalt
   und Notiz sind Hintergrund und kein Anlass, jemanden anzusprechen.
 - Keine Tageszeit ansprechen, kein "Guten Morgen": der Satz haengt von Mitternacht
