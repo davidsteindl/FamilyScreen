@@ -1,5 +1,7 @@
 #pragma once
 
+// Reusable network synchronization service; independent of touch and display drivers.
+
 #include <Arduino.h>
 #include <HTTPClient.h>
 #include <WiFiClient.h>

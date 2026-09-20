@@ -1,0 +1,10 @@
+{
+  "name": "FamilyScreenProtocol",
+  "version": "1.0.0",
+  "description": "Portable FamilyScreen bitmap protocol and shared value types",
+  "frameworks": "*",
+  "platforms": "*",
+  "build": {
+    "srcDir": "src"
+  }
+}

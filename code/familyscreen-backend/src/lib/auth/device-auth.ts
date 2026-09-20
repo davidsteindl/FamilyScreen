@@ -9,6 +9,7 @@ export default async function authenticateDevice(token: string) {
   const [device] = await db
     .select({
       id: devices.id,
+      deviceName: devices.name,
       userId: devices.userId,
       userName: users.name,
     })

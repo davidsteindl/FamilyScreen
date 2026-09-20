@@ -1,5 +1,7 @@
 #pragma once
 
+// Secret selection and TLS policy shared by the reusable network service.
+
 #include "api_ca_cert.h"
 
 #if __has_include("secrets.h")
@@ -19,8 +21,16 @@
 #define FAMILY_LOCAL_DEMO_MODE 0
 #endif
 
+#ifndef FAMILY_ALLOW_INSECURE_HTTP
+#define FAMILY_ALLOW_INSECURE_HTTP 0
+#endif
+
 #ifndef FAMILY_ALLOW_INSECURE_HTTPS
 #define FAMILY_ALLOW_INSECURE_HTTPS 0
+#endif
+
+#ifndef FAMILY_START_ON_DRAWING_PAGE
+#define FAMILY_START_ON_DRAWING_PAGE 0
 #endif
 
 #ifndef FAMILY_API_CA_CERT

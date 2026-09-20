@@ -105,6 +105,14 @@ void ensureLocalDrawingPageLast(PageManifest& pages) {
   if (pages.count < kMaximumPages) pages.pages[pages.count++] = drawing;
 }
 
+uint8_t startupPageIndex(const PageManifest& pages) {
+#if FAMILY_START_ON_DRAWING_PAGE
+  const int drawing = pages.drawingIndex();
+  if (drawing >= 0) return static_cast<uint8_t>(drawing);
+#endif
+  return 0;
+}
+
 bool renderLocalDemoContent(const PageDescriptor& page) {
   if (strcmp(page.id, "ottola") == 0) {
     canvas.clearContentWhite();
@@ -172,7 +180,10 @@ void reloadManifestPreservingPage(bool displayFirstRealManifest) {
                                       manifestScratch.pages[nextIndex]);
   manifest = manifestScratch;
   const int preserved = manifest.find(oldId);
-  currentPage = displayFirstRealManifest ? 0 : preserved >= 0 ? static_cast<uint8_t>(preserved) : 0;
+  currentPage = displayFirstRealManifest
+                    ? startupPageIndex(manifest)
+                    : preserved >= 0 ? static_cast<uint8_t>(preserved)
+                                     : startupPageIndex(manifest);
   const bool removed = oldId[0] && preserved < 0;
   usingFallbackManifest = false;
   if ((displayFirstRealManifest || removed || visiblePageChanged) && display.isIdle())
@@ -291,7 +302,12 @@ void setup() {
 #endif
   const String selected = cacheReady ? cache.selectedPageId() : String();
   const int selectedIndex = manifest.find(selected.c_str());
-  currentPage = selectedIndex >= 0 ? static_cast<uint8_t>(selectedIndex) : 0;
+#if FAMILY_START_ON_DRAWING_PAGE
+  currentPage = startupPageIndex(manifest);
+#else
+  currentPage = selectedIndex >= 0 ? static_cast<uint8_t>(selectedIndex)
+                                   : startupPageIndex(manifest);
+#endif
   if (!display.begin(framebuffer, framebufferMutex)) {
     Serial.println("Schwerer Fehler: Bildschirm-Task konnte nicht gestartet werden");
     scheduleRecoveryRestart("Bildschirm-Task fehlt");

@@ -5,62 +5,67 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { BitmapCanvas } from "@/components/bitmap-canvas";
 import { buttonVariants } from "@/components/ui/button";
 import { formatDayHeading, formatTime } from "@/lib/content/calendar";
-import { latestDeviceMessageFor } from "@/lib/messaging/messages";
+import { latestDeviceMessagesFor } from "@/lib/messaging/messages";
 import { isBlankBitmap, toBase64 } from "@/lib/screen/bitmap";
 
 export default async function InboxPage() {
   const session = await auth();
 
-  // (protected)/layout.tsx redirects, but this still runs alongside it, so bail
-  // rather than assert: without a session there is nothing to render anyway.
   if (!session?.user?.id) {
     return null;
   }
 
-  const message = await latestDeviceMessageFor(session.user.id);
-
-  const cleared = message ? isBlankBitmap(message.bitmap) : false;
+  const messages = await latestDeviceMessagesFor(session.user.id);
 
   return (
     <>
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <h1 className="text-lg font-medium">Inbox</h1>
+      <h1 className="mb-6 text-lg font-medium">Inbox</h1>
 
-        <Link
-          href="/inbox/history"
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
-          View history
-        </Link>
-      </div>
-
-      {/* Outside the branch below: an empty inbox is exactly the state that
-          wants to notice the first drawing arriving. */}
       <AutoRefresh seconds={20} />
 
-      {!message ? (
+      {messages.length === 0 ? (
         <p className="text-sm text-neutral-500">
           No drawing has arrived from a FamilyScreen yet.
         </p>
       ) : (
-        <>
-          <div className="mb-4 text-sm text-neutral-500">
-            <p>
-              From {message.senderName} · {formatDayHeading(message.createdAt)},{" "}
-              {formatTime(message.createdAt)}
-            </p>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {messages.map((message) => {
+            const cleared = isBlankBitmap(message.bitmap);
 
-            {/* Without this the empty canvas below reads as a failed load. */}
-            {cleared && <p>{message.senderName} cleared the screen.</p>}
-          </div>
+            return (
+              <article
+                key={message.sourceDeviceId}
+                className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm"
+              >
+                <div className="mb-3 text-sm text-neutral-500">
+                  <h2 className="font-medium text-neutral-900">
+                    {message.senderName}
+                  </h2>
+                  <p>
+                    {formatDayHeading(message.createdAt)},{" "}
+                    {formatTime(message.createdAt)}
+                  </p>
+                  {cleared && <p>The screen was cleared.</p>}
+                </div>
 
-          {/* The stored bytes are the uploaded bytes, and the canvas is the same
-              800x440 the device draws on, so this is the screen's own picture. */}
-          <BitmapCanvas
-            bitmap={toBase64(message.bitmap)}
-            className="max-w-3xl"
-          />
-        </>
+                <Link href={`/inbox/${message.id}`}>
+                  <BitmapCanvas bitmap={toBase64(message.bitmap)} />
+                </Link>
+
+                <Link
+                  href={`/inbox/history?device=${message.sourceDeviceId}`}
+                  className={buttonVariants({
+                    variant: "outline",
+                    size: "sm",
+                    className: "mt-4",
+                  })}
+                >
+                  View {message.senderName} history
+                </Link>
+              </article>
+            );
+          })}
+        </div>
       )}
     </>
   );
