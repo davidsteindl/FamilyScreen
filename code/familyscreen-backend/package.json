@@ -13,7 +13,8 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:register-device": "tsx src/db/register-device.ts",
     "db:studio": "drizzle-kit studio",
-    "db:seed-content": "tsx src/db/seed-content.ts"
+    "db:seed-content": "tsx src/db/seed-content.ts",
+    "daily:preview": "tsx --env-file=.env.local preview-daily.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

@@ -29,6 +29,13 @@ const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
  */
 const DEFAULT_MODEL = "gemini-3.5-flash-lite";
 
+/**
+ * Measured over ~30 calls: a successful answer lands between 0.7 and 3.0
+ * seconds. A failing one does not come back at all -- a 30 second ceiling was
+ * tried and hit just as often as this one. Since a stall is unbounded rather
+ * than merely slow, the cap is set for the good case with headroom, and the
+ * retry that matters is the next device poll ten minutes later.
+ */
 const REQUEST_TIMEOUT_MS = 6_000;
 
 const replySchema = z.object({
@@ -100,7 +107,7 @@ async function askGemini(
 /** Everything the model is allowed to know about that day. */
 async function collectContext(
   dateKey: string,
-  dayOffset: 0 | 1,
+  dayOffset: number,
 ): Promise<DailyMessageContext> {
   const targetDate = DateTime.fromISO(dateKey, {
     zone: TIME_ZONE,
@@ -128,11 +135,15 @@ async function collectContext(
 
   return {
     events,
-    weather: weather
-      ? dayOffset === 0
+    // Open-Meteo is asked for two days, so anything further out has no forecast
+    // and the planner drops the weather angle rather than guessing at one.
+    weather: !weather
+      ? null
+      : dayOffset === 0
         ? { code: weather.dayCode, high: weather.high, low: weather.low }
-        : weather.tomorrow
-      : null,
+        : dayOffset === 1
+          ? weather.tomorrow
+          : null,
     names: household.map((row) => row.name),
     household: process.env.HOUSEHOLD_CONTEXT?.trim() || undefined,
     // Split rather than merged: what the family wrote themselves is the voice
@@ -157,6 +168,52 @@ async function collectContext(
 }
 
 /**
+ * The sentence, without storing it. Split out so the whole expensive half --
+ * the day's context, the angle, the prompt, the model, the validator -- can be
+ * run and looked at without a row appearing and a date being claimed.
+ */
+export async function draftDailyMessage(dateKey: string, dayOffset: number) {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+
+  if (!apiKey) {
+    return null;
+  }
+
+  const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
+  const context = await collectContext(dateKey, dayOffset);
+  const angle = planDailyMessage(dateKey, context);
+
+  let correction: string | undefined;
+
+  // Two attempts at most, and the second only because the first one answered:
+  // a validation failure means the model was fast and the retry is affordable,
+  // while a timeout means it was not and a blind retry blows the request
+  // budget the device is waiting on.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const prompt = buildDailyMessagePrompt(angle, dateKey, context, correction);
+    const text = await askGemini(apiKey, model, prompt.system, prompt.user);
+
+    const problems = [
+      ...dailyMessageProblems(text),
+      ...(text.length > GENERATED_MAX_LENGTH
+        ? [
+            `Text has ${text.length} characters; keep it under ${GENERATED_MAX_LENGTH}`,
+          ]
+        : []),
+    ];
+
+    if (problems.length === 0) {
+      return { text, angle, model };
+    }
+
+    console.error(`Daily message rejected: ${problems[0]} (${text})`);
+    correction = problems[0];
+  }
+
+  return null;
+}
+
+/**
  * The day's line, written for that day's calendar and weather and stored as the
  * row that owns the date.
  *
@@ -166,67 +223,30 @@ async function collectContext(
  * same reason -- a wall screen must not go blank because a provider was slow.
  */
 export async function generateDailyMessage(dateKey: string, dayOffset: 0 | 1) {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-
-  if (!apiKey) {
-    return null;
-  }
-
-  const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
-
   try {
-    const context = await collectContext(dateKey, dayOffset);
-    const angle = planDailyMessage(dateKey, context);
+    const draft = await draftDailyMessage(dateKey, dayOffset);
 
-    let correction: string | undefined;
-
-    // Two attempts at most, and the second only because the first one answered:
-    // a validation failure means the model was fast and the retry is affordable,
-    // while a timeout means it was not and a blind retry blows the request
-    // budget the device is waiting on.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const prompt = buildDailyMessagePrompt(
-        angle,
-        dateKey,
-        context,
-        correction,
-      );
-      const text = await askGemini(apiKey, model, prompt.system, prompt.user);
-
-      const problems = [
-        ...dailyMessageProblems(text),
-        ...(text.length > GENERATED_MAX_LENGTH
-          ? [
-              `Text has ${text.length} characters; keep it under ${GENERATED_MAX_LENGTH}`,
-            ]
-          : []),
-      ];
-
-      if (problems.length === 0) {
-        const [inserted] = await db
-          .insert(dailyMessages)
-          .values({
-            text,
-            category: "generated",
-            status: "approved",
-            lastDisplayedOn: dateKey,
-            sourceName: model,
-            reviewNote: angle,
-          })
-          // No target, so it covers the unique date and the unique text alike.
-          // Either collision means this is not the row that owns the day, and
-          // the caller's corpus path already recovers from both.
-          .onConflictDoNothing()
-          .returning({ id: dailyMessages.id, text: dailyMessages.text });
-
-        return inserted ?? null;
-      }
-
-      console.error(`Daily message rejected: ${problems[0]} (${text})`);
-      correction = problems[0];
+    if (!draft) {
+      return null;
     }
 
-    return null;
+    const [inserted] = await db
+      .insert(dailyMessages)
+      .values({
+        text: draft.text,
+        category: "generated",
+        status: "approved",
+        lastDisplayedOn: dateKey,
+        sourceName: draft.model,
+        reviewNote: draft.angle,
+      })
+      // No target, so it covers the unique date and the unique text alike.
+      // Either collision means this is not the row that owns the day, and the
+      // caller's corpus path already recovers from both.
+      .onConflictDoNothing()
+      .returning({ id: dailyMessages.id, text: dailyMessages.text });
+
+    return inserted ?? null;
   } catch (error) {
     console.error("Daily message generation failed:", error);
 

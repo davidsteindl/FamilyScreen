@@ -53,6 +53,9 @@ const GLYPHS: Record<string, number[]> = {
   "(": [0x00, 0x1c, 0x22, 0x41, 0x00],
   ")": [0x00, 0x41, 0x22, 0x1c, 0x00],
   '"': [0x00, 0x07, 0x00, 0x07, 0x00],
+  // Half of the double quote. Austrian dialect leans on it constantly:
+  // z'fruah, g'sund, auf'd.
+  "'": [0x00, 0x00, 0x07, 0x00, 0x00],
   "+": [0x08, 0x08, 0x3e, 0x08, 0x08],
   "=": [0x14, 0x14, 0x14, 0x14, 0x14],
   "%": [0x23, 0x13, 0x08, 0x64, 0x62],
@@ -110,6 +113,9 @@ export function strokeRect(
 }
 
 // The font has no umlauts, so they are spelled out. Sharp s is handled by toUpperCase.
+// Curly apostrophes and the modifier letter all render as the straight one.
+const APOSTROPHES = /[‘’ʼ]/g;
+
 const UMLAUTS: Record<string, string> = {
   Ä: "AE",
   Ö: "OE",
@@ -121,6 +127,7 @@ function normalize(text: string) {
   return [
     ...text
       .toUpperCase()
+      .replace(APOSTROPHES, "'")
       .replace(/[ÄÖÜ]/g, (character) => UMLAUTS[character])
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, ""),

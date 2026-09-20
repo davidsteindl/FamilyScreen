@@ -11,6 +11,7 @@ import {
   DAILY_MESSAGE_MAX_LENGTH,
   dailyMessageProblems,
 } from "./rules";
+import { unsupportedCharacters } from "@/lib/screen/bitmap-render";
 import {
   buildDailyMessagePrompt,
   pickExamples,
@@ -48,6 +49,11 @@ assert.equal(
   1,
 );
 assert.equal(dailyMessageProblems("Schoene Gruesse \u{1F600}").length, 1);
+// Austrian dialect leans on the apostrophe, and the device font has a glyph
+// for it. Curly ones are folded onto the straight one by the renderer.
+assert.deepEqual(dailyMessageProblems("Wer z'fruah aufsteht, is g'sund"), []);
+assert.deepEqual(dailyMessageProblems("Wer z’fruah aufsteht"), []);
+assert.deepEqual(unsupportedCharacters("Wer z'fruah aufsteht, is g’sund"), []);
 
 // Vienna crosses into the next day while UTC is still on the prior date.
 assert.equal(viennaDateKey(new Date("2026-08-30T21:30:00Z")), "2026-08-30");

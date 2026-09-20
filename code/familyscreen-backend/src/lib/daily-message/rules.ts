@@ -19,7 +19,7 @@ export type DailyMessageStatus = "pending" | "approved" | "rejected";
 
 // Matches the tiny bitmap font. Diacritics and umlauts are normalized by the
 // renderer; the remaining punctuation is deliberately conservative.
-const DISPLAYABLE_TEXT = /^[\p{L}\p{N} .,:;!?()"+%&/_-]+$/u;
+const DISPLAYABLE_TEXT = /^[\p{L}\p{N} .,:;!?()"'‘’+%&/_-]+$/u;
 
 export function dailyMessageProblems(text: string) {
   const problems: string[] = [];

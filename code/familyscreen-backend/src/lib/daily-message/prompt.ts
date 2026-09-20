@@ -13,8 +13,6 @@ import { dailyTieBreaker } from "./selection";
 export type DailyMessageAngle =
   | "event"
   | "weather"
-  | "dialect"
-  | "joke"
   | "bonmot"
   | "saying"
   | "season"
@@ -71,8 +69,6 @@ function notableWeather(weather: NonNullable<DailyMessageContext["weather"]>) {
 }
 
 const INVENTED: DailyMessageAngle[] = [
-  "dialect",
-  "joke",
   "bonmot",
   "saying",
   "season",
@@ -83,8 +79,6 @@ const INSTRUCTIONS: Record<DailyMessageAngle, string> = {
   event:
     "Beziehe dich auf genau einen Termin von diesem Tag und erinnere freundlich daran.",
   weather: "Beziehe dich auf das Wetter und gib einen praktischen Hinweis.",
-  dialect: "Schreib einen Spruch im niederoesterreichischen Dialekt.",
-  joke: "Schreib einen harmlosen Kalauer.",
   bonmot: "Schreib ein kurzes Bonmot ueber den Alltag.",
   saying: "Nimm ein oesterreichisches Sprichwort und dreh es humorvoll ab.",
   season: "Beziehe dich auf die Jahreszeit.",
@@ -146,7 +140,7 @@ Antworte mit genau einem Satz auf Deutsch, oesterreichisch, in der Du-Form.
 Regeln:
 - Hoechstens ${REQUESTED_MAX_LENGTH} Zeichen. Kuerzer ist besser. Der Satz steht in einer schmalen
   Spalte und wird bei langen Texten kleiner gedruckt.
-- Erlaubt sind nur Buchstaben, Ziffern, Leerzeichen und . , : ; ! ? ( ) " + % & / _ -
+- Erlaubt sind nur Buchstaben, Ziffern, Leerzeichen und . , : ; ! ? ( ) " ' + % & / _ -
   Keine Emojis, keine Gedankenstriche, kein Markdown, keine Anfuehrungszeichen um
   den ganzen Satz, keine Zeilenumbrueche.
 - Warm, alltagsnah, trocken. Keine Motivationsfloskeln, kein Pathos.
