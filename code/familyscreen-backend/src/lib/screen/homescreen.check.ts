@@ -231,6 +231,8 @@ const ottenschlag: Weather = {
   high: 26.5,
   low: 14.2,
   description: "LEICHT BEWOELKT",
+  dayCode: 2,
+  tomorrow: { code: 61, high: 18.0, low: 11.5 },
 };
 
 const wien: Weather = {
@@ -239,6 +241,8 @@ const wien: Weather = {
   high: 30.1,
   low: 18.3,
   description: "UEBERWIEGEND KLAR",
+  dayCode: 1,
+  tomorrow: { code: 1, high: 29.4, low: 17.8 },
 };
 
 const renderedAt = new Date("2026-08-30T10:00:00Z");

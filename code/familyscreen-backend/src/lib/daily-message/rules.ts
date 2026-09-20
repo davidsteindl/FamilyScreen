@@ -7,6 +7,9 @@ export const DAILY_MESSAGE_CATEGORIES = [
   "saying",
   // Written by a signed-in reviewer instead of imported from the seed.
   "family",
+  // Written by the model for one specific day. Deliberately kept out of the
+  // reusable pool: "heute wird es stark regnen" is false on every other day.
+  "generated",
 ] as const;
 
 export type DailyMessageCategory =

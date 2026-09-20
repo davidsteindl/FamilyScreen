@@ -27,8 +27,9 @@ const forecastSchema = z.object({
     weather_code: z.number(),
   }),
   daily: z.object({
-    temperature_2m_max: z.array(z.number()).min(1),
-    temperature_2m_min: z.array(z.number()).min(1),
+    temperature_2m_max: z.array(z.number()).min(2),
+    temperature_2m_min: z.array(z.number()).min(2),
+    weather_code: z.array(z.number()).min(2),
   }),
 });
 
@@ -64,12 +65,33 @@ const DESCRIPTIONS: Record<number, string> = {
   99: "GEWITTER MIT HAGEL",
 };
 
+/** What a whole day will be like, as opposed to the current instant. */
+export type DayOutlook = {
+  code: number;
+  high: number;
+  low: number;
+};
+
+/** The short German label the screen draws for a WMO code. */
+export function describeWeatherCode(code: number) {
+  return DESCRIPTIONS[code] ?? "UNBEKANNT";
+}
+
 export type Weather = {
   location: string;
   temperature: number;
   high: number;
   low: number;
   description: string;
+  /**
+   * The WMO code standing for the whole day. `description` above comes from
+   * `current`, which is what the screen draws, but a daily message written
+   * shortly after midnight would read the night sky from it and never mention
+   * the storm that arrives at two in the afternoon.
+   */
+  dayCode: number;
+  /** For the daily message, which is written a day ahead. */
+  tomorrow: DayOutlook;
 };
 
 /** Deterministic development/offline data; live Open-Meteo data replaces it. */
@@ -81,6 +103,8 @@ export function mockWeather(location: Location): Weather {
       high: 25,
       low: 16,
       description: "LEICHT BEWOELKT",
+      dayCode: 2,
+      tomorrow: { code: 2, high: 24, low: 15 },
     };
   }
 
@@ -90,6 +114,8 @@ export function mockWeather(location: Location): Weather {
     high: 21,
     low: 12,
     description: "UEBERWIEGEND KLAR",
+    dayCode: 1,
+    tomorrow: { code: 1, high: 20, low: 11 },
   };
 }
 
@@ -101,8 +127,10 @@ export async function getWeather(location: Location): Promise<Weather> {
     latitude: String(location.latitude),
     longitude: String(location.longitude),
     current: "temperature_2m,weather_code",
-    daily: "temperature_2m_max,temperature_2m_min",
-    forecast_days: "1",
+    daily: "temperature_2m_max,temperature_2m_min,weather_code",
+    // Two days in one request, so the daily message written a day ahead reads
+    // the same cache entry the screen already warmed.
+    forecast_days: "2",
     timezone: "auto",
   }).toString();
 
@@ -124,6 +152,12 @@ export async function getWeather(location: Location): Promise<Weather> {
     temperature: forecast.current.temperature_2m,
     high: forecast.daily.temperature_2m_max[0],
     low: forecast.daily.temperature_2m_min[0],
-    description: DESCRIPTIONS[forecast.current.weather_code] ?? "UNBEKANNT",
+    description: describeWeatherCode(forecast.current.weather_code),
+    dayCode: forecast.daily.weather_code[0],
+    tomorrow: {
+      code: forecast.daily.weather_code[1],
+      high: forecast.daily.temperature_2m_max[1],
+      low: forecast.daily.temperature_2m_min[1],
+    },
   };
 }

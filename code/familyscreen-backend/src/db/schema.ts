@@ -179,7 +179,10 @@ export const dailyMessages = pgTable(
     reviewedBy: text("reviewed_by"),
     reviewedByName: text("reviewed_by_name"),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
-    /** The latest Vienna calendar day on which this message was selected. */
+    /**
+     * The Vienna calendar day this message owns. Usually today or, for the
+     * entry written a day ahead, tomorrow.
+     */
     lastDisplayedOn: date("last_displayed_on", { mode: "string" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

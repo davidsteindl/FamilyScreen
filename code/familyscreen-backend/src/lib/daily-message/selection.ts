@@ -9,7 +9,13 @@ export function viennaDateKey(date: Date) {
   return local(date).toISODate();
 }
 
-function dailyTieBreaker(dateKey: string, id: number) {
+/** The Vienna day after the one this instant falls in. */
+export function viennaNextDateKey(date: Date) {
+  return local(date).plus({ days: 1 }).toISODate();
+}
+
+/** Exported so the prompt builder rotates on the same deterministic hash. */
+export function dailyTieBreaker(dateKey: string, id: number) {
   return createHash("sha256").update(`${dateKey}:${id}`).digest("hex");
 }
 

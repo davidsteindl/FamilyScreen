@@ -11,11 +11,40 @@ import {
   dailyMessageProblems,
   type DailyMessageStatus,
 } from "./rules";
+import { refillDailyMessageSlot, type DailyMessageSlot } from "./queries";
 
 const REVIEW_DECISIONS = new Set<DailyMessageStatus>([
   "approved",
   "rejected",
 ]);
+
+const SLOTS = new Set<DailyMessageSlot>(["today", "tomorrow"]);
+
+/**
+ * That day's text again, from scratch. Reject is the wrong verb when the pool
+ * claimed a slot because the model was unreachable: nothing is wrong with the
+ * seed, it simply is not the line anyone wants on the wall.
+ */
+export async function regenerateDailyMessage(formData: FormData) {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const slot = formData.get("slot");
+
+  // The slot is a name, never a date: nothing from the form is allowed to pick
+  // which calendar day gets rewritten.
+  if (typeof slot !== "string" || !SLOTS.has(slot as DailyMessageSlot)) {
+    throw new Error("Invalid regenerate request");
+  }
+
+  await refillDailyMessageSlot(slot as DailyMessageSlot);
+
+  revalidatePath("/daily-messages");
+  revalidatePath("/create-homescreen");
+}
 
 export async function reviewDailyMessage(formData: FormData) {
   const session = await auth();
