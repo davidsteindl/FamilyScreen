@@ -20,16 +20,27 @@ const REVIEW_DECISIONS = new Set<DailyMessageStatus>([
 
 const SLOTS = new Set<DailyMessageSlot>(["today", "tomorrow"]);
 
+export type RegenerateDailyMessageResult =
+  | { regenerated: true }
+  | { error: string };
+
 /**
  * That day's text again, from scratch. Reject is the wrong verb when the pool
  * claimed a slot because the model was unreachable: nothing is wrong with the
  * seed, it simply is not the line anyone wants on the wall.
+ *
+ * Shaped for useActionState like createDailyMessage, because this is the one
+ * action on the page that keeps the reviewer waiting on a model call and can
+ * come back empty without anything being broken.
  */
-export async function regenerateDailyMessage(formData: FormData) {
+export async function regenerateDailyMessage(
+  _prevState: RegenerateDailyMessageResult | undefined,
+  formData: FormData,
+): Promise<RegenerateDailyMessageResult> {
   const session = await auth();
 
   if (!session?.user?.id) {
-    throw new Error("Unauthorized");
+    return { error: "Please log in again." };
   }
 
   const slot = formData.get("slot");
@@ -40,10 +51,24 @@ export async function regenerateDailyMessage(formData: FormData) {
     throw new Error("Invalid regenerate request");
   }
 
-  await refillDailyMessageSlot(slot as DailyMessageSlot);
+  const filled = await refillDailyMessageSlot(slot as DailyMessageSlot);
 
+  // Also on the empty result: the old row was released either way, so the card
+  // has to be re-rendered to stop showing a text that no longer owns the date.
   revalidatePath("/daily-messages");
   revalidatePath("/create-homescreen");
+
+  // Tomorrow is deliberately left open when the model does not answer, so the
+  // day keeps its remaining polls to get a written line instead of spending
+  // itself on a seed. From a button that reads as nothing happening at all.
+  if (!filled) {
+    return {
+      error:
+        "No new text came back. The day is open again — try once more, or leave it to the next device poll.",
+    };
+  }
+
+  return { regenerated: true };
 }
 
 export async function reviewDailyMessage(formData: FormData) {

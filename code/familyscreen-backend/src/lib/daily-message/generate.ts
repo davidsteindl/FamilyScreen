@@ -203,7 +203,9 @@ export async function draftDailyMessage(dateKey: string, dayOffset: number) {
     ];
 
     if (problems.length === 0) {
-      return { text, angle, model };
+      // The context comes back too, so a caller can show what the model was
+      // told next to what it wrote. Nothing else can prove the two agree.
+      return { text, angle, model, context };
     }
 
     console.error(`Daily message rejected: ${problems[0]} (${text})`);

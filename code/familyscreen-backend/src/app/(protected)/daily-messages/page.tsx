@@ -3,27 +3,23 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
-  RefreshCw,
   X,
 } from "lucide-react";
 import Link from "next/link";
 
 import { CreateDailyMessageForm } from "@/components/daily-message/create-form";
 import { DeleteDailyMessageForm } from "@/components/daily-message/delete-form";
+import { ScheduledCard } from "@/components/daily-message/scheduled-card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DAILY_MESSAGE_MAX_LENGTH,
   type DailyMessageStatus,
 } from "@/lib/daily-message/rules";
-import {
-  regenerateDailyMessage,
-  reviewDailyMessage,
-} from "@/lib/daily-message/actions";
+import { reviewDailyMessage } from "@/lib/daily-message/actions";
 import {
   dailyMessageCounts,
   getScheduledDailyMessages,
   listDailyMessages,
-  type DailyMessageSlot,
 } from "@/lib/daily-message/queries";
 import { viennaDateKey, viennaNextDateKey } from "@/lib/daily-message/selection";
 import { cn } from "@/lib/utils";
@@ -62,63 +58,9 @@ const DAY_FORMAT = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/Vienna",
 });
 
-type ScheduledEntry = Awaited<
-  ReturnType<typeof getScheduledDailyMessages>
->[DailyMessageSlot];
-
-/**
- * What the screen shows that day. Tomorrow is already written, which is the
- * point of the day-ahead generation: there is an evening to read it and ask
- * for another one before it reaches the wall.
- */
-function ScheduledCard({
-  slot,
-  label,
-  dateKey,
-  entry,
-}: {
-  slot: DailyMessageSlot;
-  label: string;
-  dateKey: string;
-  entry: ScheduledEntry;
-}) {
-  return (
-    <article className="flex flex-col rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-      <div className="mb-3 flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-sm font-medium">{label}</h2>
-          <p className="text-xs text-neutral-500">
-            {DAY_FORMAT.format(new Date(`${dateKey}T12:00:00Z`))}
-          </p>
-        </div>
-        <form action={regenerateDailyMessage}>
-          <input type="hidden" name="slot" value={slot} />
-          <Button type="submit" size="sm" variant="outline">
-            <RefreshCw aria-hidden="true" /> Regenerate
-          </Button>
-        </form>
-      </div>
-
-      {entry ? (
-        <>
-          <p className="text-lg leading-relaxed text-neutral-900">
-            {entry.text}
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-            <span className="rounded-full bg-neutral-100 px-2 py-1">
-              {entry.category}
-            </span>
-            {entry.reviewNote && <span>{entry.reviewNote}</span>}
-            <span>{entry.sourceName ?? "from the approved pool"}</span>
-          </div>
-        </>
-      ) : (
-        <p className="text-sm text-neutral-500">
-          Written on the next device poll, or now with Regenerate.
-        </p>
-      )}
-    </article>
-  );
+/** Midday, so the date key names the same day in every offset Vienna has. */
+function formatDay(dateKey: string) {
+  return DAY_FORMAT.format(new Date(`${dateKey}T12:00:00Z`));
 }
 
 async function loadReviewData(
@@ -197,13 +139,13 @@ export default async function DailyMessagesPage({
         <ScheduledCard
           slot="today"
           label="Today"
-          dateKey={today}
+          date={formatDay(today)}
           entry={scheduled.today}
         />
         <ScheduledCard
           slot="tomorrow"
           label="Tomorrow"
-          dateKey={tomorrow}
+          date={formatDay(tomorrow)}
           entry={scheduled.tomorrow}
         />
       </section>
